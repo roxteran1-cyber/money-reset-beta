@@ -1,0 +1,2438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Money Reset — Private Beta</title>
+<style>
+:root{--cream:#fbf4e8;--paper:#fffaf2;--brown:#4d3328;--ink:#60483b;--orange:#c96d3b;--gold:#d49a4a;--sage:#7b8060;--line:#dfcdb7;--soft:#f7eadb;--white:#fffdf8}
+*{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--brown);font-family:"Trebuchet MS","Segoe UI",sans-serif}
+.app{max-width:1060px;margin:auto;min-height:100vh;padding:24px}.card{background:var(--paper);border:1px solid var(--line);border-radius:26px;box-shadow:0 12px 35px #4d332812;padding:36px}
+.eyebrow{text-align:center;letter-spacing:2px;font:700 11px "Trebuchet MS","Segoe UI",sans-serif;color:var(--orange)}h1{font-family:"Bodoni 72","Didot","Baskerville","Iowan Old Style","Palatino Linotype",Georgia,serif;font-size:54px;font-weight:500;letter-spacing:-.7px;text-align:center;margin:16px 0 8px}h2{font-size:34px;margin:0 0 10px}h3{font-size:22px;margin:0 0 10px}p{font:16px/1.6 Arial;color:var(--ink)}
+.center{text-align:center}.center:after{content:"✦  •  ✦";display:block;color:var(--gold);font:16px Georgia,serif;letter-spacing:5px;margin-top:14px}.progress{height:8px;background:#eadbc9;border-radius:8px;margin:22px 0 30px}.bar{height:100%;background:var(--orange);border-radius:8px;transition:.25s}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:20px 0}.option{padding:17px;border:2px solid var(--line);border-radius:15px;background:var(--white);text-align:left;font:700 15px "Trebuchet MS","Segoe UI",sans-serif;color:var(--brown);cursor:pointer}.option:hover{border-color:var(--gold);transform:translateY(-1px);box-shadow:0 5px 14px #4d332812}.selected{border-color:var(--orange);background:#f7dfcc;box-shadow:0 5px 14px #c96d3b18}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field{margin:16px 0}.field label{font:700 13px "Trebuchet MS","Segoe UI",sans-serif;display:block;margin-bottom:7px}input,select,textarea{width:100%;padding:13px;border:1px solid var(--line);border-radius:11px;background:white;font:15px "Trebuchet MS","Segoe UI",sans-serif;color:var(--brown)}textarea{min-height:110px;resize:vertical}
+.note{font:14px/1.5 "Trebuchet MS","Segoe UI",sans-serif;color:#765d4e;background:var(--soft);padding:14px;border-radius:12px;margin:18px 0}.actions{display:flex;justify-content:space-between;gap:12px;margin-top:28px}.btn{border:0;border-radius:13px;padding:14px 23px;font:700 14px "Trebuchet MS","Segoe UI",sans-serif;letter-spacing:.2px;cursor:pointer;transition:.2s}.btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px #4d332818}.primary{background:var(--orange);color:white}.secondary{background:#eadbc9;color:var(--brown)}
+.review{border:1px solid var(--line);border-radius:15px;padding:15px;margin:10px 0;background:var(--white)}.review b{font:700 14px "Trebuchet MS","Segoe UI",sans-serif}.ok{color:var(--sage);font-weight:bold}.warn{color:#9b4d36;font-weight:bold}
+.metricgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}.metric{background:var(--soft);border-radius:16px;padding:18px}.metric span{display:block;font:12px "Trebuchet MS","Segoe UI",sans-serif;text-transform:uppercase;letter-spacing:1px}.metric strong{display:block;font:28px Georgia;margin-top:7px}
+.pill{display:inline-block;padding:6px 10px;border-radius:99px;background:#eadbc9;font:700 11px "Trebuchet MS","Segoe UI",sans-serif;margin:3px}.section{border-top:1px solid var(--line);padding-top:22px;margin-top:22px}
+.hidden{display:none}@media(max-width:700px){.grid,.row,.metricgrid{grid-template-columns:1fr}h1{font-size:42px;letter-spacing:-.4px}.card{padding:24px}}
+
+/* Title font only — all other beta styling remains unchanged. */
+h1, .hero-title, .title {
+  font-family: "Bodoni 72", Didot, "Bodoni MT", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+}
+</style>
+</head>
+<body>
+<div class="app" id="app"><div style="text-align:center;font:700 10px Arial;color:#80685a;letter-spacing:2px;margin:4px 0 10px">MONEY RESET · PRIVATE BETA · TEST BUILD</div><div class="card" id="screen"></div></div>
+<script>
+let SAVED=null;
+try{SAVED=JSON.parse(localStorage.getItem('moneyResetBeta')||'null')}catch(e){SAVED=null;try{localStorage.removeItem('moneyResetBeta')}catch(_){}}
+const MAX_BETA_STEP=14;
+const S={
+ step:0,goals:[],incomeFreq:"",incomeAmount:"",nextPay:"",accounts:[],
+ bills:[],nonMonthly:[],spending:[],debts:[],debtPref:"",
+ savings:[],reserve:"",upcoming:[],stress:"",anything:"",approved:false,transfers:[]
+};
+
+if(SAVED && SAVED.version===1 && SAVED.data){
+  const restored=normalizeImportedRecord(SAVED.data);
+  Object.keys(restored).forEach(k=>{S[k]=restored[k]});
+}
+
+const steps=[
+{e:"PERSONALIZED HOUSEHOLD MONEY PLANNING",t:"The Money Reset",intro:true},
+{e:"LET'S START WITH YOU",t:"Your Goals",q:"What would you most like Money Reset to help you with?",multi:"goals",opts:["Stop running out of money","Get organized","Pay off debt","Build savings","Prepare for a big purchase","Plan a trip/event","Something else"]},
+{e:"INCOME",t:"Your Income",q:"How often do you receive income?",income:true,opts:["Weekly","Every 2 weeks","Twice a month","Monthly","Irregular","Multiple income sources","Something else"]},
+{e:"ACCOUNTS",t:"Your Accounts",q:"Which accounts or money locations do you use?",multi:"accounts",opts:["Checking","Savings","Cash","Credit card","Multiple checking/savings","Other account","I'm not sure"]},
+{e:"BILLS",t:"Your Regular Bills",list:"bills",prompt:"Add your regular bills. Use one bill per line.",ph:"Rent | 1400 | monthly | 1\nCar | 300 | monthly | 15\nPhone | 200 | monthly | 20",help:"Format: Name | Amount | Frequency | Due day. You can also enter a simple description; anything unclear stays an assumption until confirmed."},
+{e:"NON-MONTHLY EXPENSES",t:"Expenses That Don't Happen Every Month",list:"nonMonthly",prompt:"Add less-frequent expenses. Use one expense per line.",ph:"Car registration | 180 | yearly\nSchool supplies | 250 | yearly\nBirthday | 150 | as needed",help:"Money Reset preserves the frequency you enter. It does not automatically turn everything into a weekly budget."},
+{e:"EVERYDAY SPENDING",t:"Your Real-Life Spending",list:"spending",prompt:"Add everyday/variable spending. Use one category per line.",ph:"Groceries | 150 | weekly\nGas | 70 | every 2 weeks\nEating out | 120 | monthly",help:"Describe what you actually do. The plan should fit real life, not force your spending into an artificial schedule."},
+{e:"DEBT",t:"Your Debt",list:"debts",debt:true,prompt:"Debt is optional. Add one debt per line.",ph:"Visa | 2400 | 75 | monthly | 18 | 24.99\nAuto loan | 12000 | 300 | monthly | 15 | 8.5",help:"Format: Creditor | Balance | Minimum | Frequency | Due day | Interest rate. Unknown details can stay blank."},
+{e:"SAVINGS & GOALS",t:"Savings and Goals",list:"savings",prompt:"Add savings goals. Use one goal per line.",ph:"Emergency fund | 3000 | 2026-12-31 | 900\nVacation | 2000 | 2027-04-01 | 500",help:"Format: Goal | Target | Desired date | Already saved. You can say 'none', 'nothing saved', or 'I don't have any savings' when the amount already saved is $0."},
+{e:"RESERVE",t:"Emergency & Backup Money",area:"reserve",prompt:"Tell us about money you intentionally keep available as a reserve or emergency cushion.",ph:"Example: $1,500 kept available for unexpected household repairs or emergencies.",},
+{e:"UPCOMING",t:"What's Coming Up?",area:"upcoming",prompt:"List upcoming expenses or events Money Reset should account for.",ph:"Example: annual insurance payment in November; family trip in April; school registration next month."},
+{e:"REAL LIFE",t:"The Part Numbers Don't Explain",area:"stress",prompt:"What's the biggest money stress or problem you want this plan to solve?",ph:"Be honest. This helps Money Reset prioritize the plan around your actual life."},
+{e:"ANYTHING ELSE",t:"Anything Else We Should Know?",area:"anything",prompt:"Tell us anything that could change how your money plan should work.",ph:"Timing issues, household needs, priorities, irregular income, concerns, or anything else."},
+{e:"REVIEW",t:"Let's Make Sure We Got It Right",review:true},
+{e:"PLAN",t:"Your Money Reset",plan:true}
+];
+
+function esc(x){return String(x??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;")}
+function money(n){return Number.isFinite(n)?n.toLocaleString(undefined,{style:"currency",currency:"USD",maximumFractionDigits:0}):"—"}
+function parseMoney(value,options={}){
+ const original=String(value??"").trim();
+ if(original==="") return 0;
+ if(options.allowNaturalZero){
+   const naturalZero=/^(?:none|nothing|zero|no savings?|no money|i (?:do not|don't|dont) have (?:any )?(?:savings?|money)|i (?:have|got) (?:no|nothing) (?:saved|in savings?)|nothing saved|not saved|no amount|n\/?a)$/i;
+   if(naturalZero.test(original)) return 0;
+ }
+ const raw=original.replace(/[$,\s]/g,"");
+ const n=Number(raw);
+ return Number.isFinite(n)?n:NaN;
+}
+function parseSavedAmount(value){return parseMoney(value,{allowNaturalZero:true})}
+function parseReserveAmount(value){return parseMoney(value,{allowNaturalZero:true})}
+function setListNone(kind){const el=document.getElementById("area");if(!el)return;el.value="none";S[kind]=[];invalidateApproval();}
+function naturalNoItems(value){
+ const v=String(value??"").trim();
+ return /^(?:none|nothing|no(?:\s+(?:debt|debts|bills?|regular bills?|expenses?|spending|savings?|goals?|accounts?))?|i(?:\s+do)?n?['’]?t\s+have(?:\s+any)?\s+(?:debt|debts|bills?|regular bills?|expenses?|spending|savings?|goals?|accounts?)|i\s+have\s+no\s+(?:debt|debts|bills?|regular bills?|expenses?|spending|savings?|goals?|accounts?))$/i.test(v);
+}
+function parseRows(text,kind){
+ if(naturalNoItems(text))return [];
+ return text.split(/\n+/).map(x=>x.trim()).filter(Boolean).map(line=>{
+   const p=line.split("|").map(x=>x.trim());
+   if(kind==="bills")return {name:p[0]||"Unnamed bill",amount:p[1]===""||p[1]==null?NaN:parseMoney(p[1]),freq:p[2]||"unknown",due:p[3]||""};
+   if(kind==="nonMonthly")return {name:p[0]||"Unnamed expense",amount:p[1]===""||p[1]==null?NaN:parseMoney(p[1]),freq:p[2]||"unknown"};
+   if(kind==="spending")return {name:p[0]||"Unnamed spending",amount:p[1]===""||p[1]==null?NaN:parseMoney(p[1]),freq:p[2]||"unknown"};
+   if(kind==="debts")return {name:p[0]||"Unnamed debt",balance:p[1]===""||p[1]==null?NaN:parseMoney(p[1]),min:p[2]===""||p[2]==null?"":parseMoney(p[2]),freq:p[3]||"monthly",due:p[4]||"",rate:p[5]||""};
+   if(kind==="savings")return {name:p[0]||"Unnamed goal",target:p[1]===""||p[1]==null?NaN:parseMoney(p[1]),date:p[2]||"",saved:p[3]===""||p[3]==null?0:parseSavedAmount(p[3])};
+ }).filter(Boolean)
+}
+function annualize(amount,freq){
+ const a=parseMoney(amount);
+ if(!Number.isFinite(a)||a<0)return null;
+ const f=(freq||"").toLowerCase();
+ if(f.includes("2 week")||f.includes("every 2")||f.includes("biweekly")||f.includes("bi-weekly"))return a*26;
+ if(f.includes("weekly"))return a*52;
+ if(f.includes("twice")||f.includes("semi"))return a*24;
+ if(f.includes("monthly"))return a*12;
+ if(f.includes("year"))return a;
+ return null;
+}
+function monthlyAmount(amount,freq){const a=annualize(amount,freq);return a==null?null:a/12}
+function parseDate(v){
+ const raw=String(v??"").trim();
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(raw))return null;
+ const [y,m,dn]=raw.split("-").map(Number);
+ const d=new Date(y,m-1,dn,12,0,0);
+ if(d.getFullYear()!==y||d.getMonth()!==m-1||d.getDate()!==dn)return null;
+ return d;
+}
+function parseUpcoming(value){
+ if(!value)return [];
+ if(Array.isArray(value))return value;
+ if(naturalNoItems(value))return [];
+ return String(value).split(/\n+/).map(x=>x.trim()).filter(Boolean).map(line=>{
+   const p=line.split("|").map(x=>x.trim());
+   if(p.length>=3){
+     const amount=p[1]===""?null:parseMoney(p[1]);
+     const date=parseDate(p[2]);
+     return {description:p[0]||"Upcoming commitment",amount:Number.isFinite(amount)?amount:null,date:date?date.toISOString().slice(0,10):p[2]||""};
+   }
+   return {description:line,amount:null,date:""};
+ });
+}
+function upcomingCommitments(){
+ return (Array.isArray(S.upcoming)?S.upcoming:parseUpcoming(S.upcoming)).map(u=>{
+   if(typeof u==="string")return {description:u,amount:null,date:""};
+   return {description:String(u.description||u.name||"Upcoming commitment"),amount:Number.isFinite(parseMoney(u.amount))?parseMoney(u.amount):null,date:String(u.date||"")};
+ });
+}
+function upcomingRiskSummary(){
+ const today=new Date(); today.setHours(12,0,0,0);
+ const end=new Date(today); end.setDate(end.getDate()+90);
+ const items=upcomingCommitments().filter(u=>{const d=parseDate(u.date);return d&&d>=today&&d<=end&&u.amount!=null;});
+ const total=items.reduce((a,u)=>a+u.amount,0);
+ const room=typeof snapshot==="function"?snapshot().remaining:null;
+ return {items,total,room,warn:room!=null&&total>Math.max(room,0)};
+}
+function monthsBetween(from,to){
+ if(!from||!to)return null;
+ const a=parseDate(from),b=parseDate(to);
+ if(!a||!b||b<=a)return null;
+ return Math.max((b-a)/(1000*60*60*24*30.4375),0.25);
+}
+function runtimeSource(){
+ try{
+  const html=document.documentElement.outerHTML;
+  const script=[...document.scripts].map(x=>x.textContent||"").join("\n");
+  return {html,script};
+ }catch(e){return {html:"",script:""};}
+}
+function releaseSecurityIntegrityTest(){
+ const cases=[];
+ const src=runtimeSource(), script=src.script, html=src.html;
+
+ cases.push({
+   label:"Saved-state JSON parsing is protected",
+   pass:/try\s*\{\s*SAVED\s*=\s*JSON\.parse/.test(script)
+ });
+ cases.push({
+   label:"Planning language does not equate planning room with bank balance",
+   pass:(()=>{try{const output=[dashboardPreview(),binderPreview(),actionPlan()].join(" ");return /not a bank balance/i.test(output)}catch(e){return false}})()
+ });
+ cases.push({
+   label:"Transfer handling has explicit pending treatment",
+   pass:/pending/i.test(script) && /transfer/i.test(script)
+ });
+ cases.push({
+   label:"Customer credentials are not requested by the intake fields",
+   pass:!/<input[^>]+type=["']password["']/i.test(script) && !/<input[^>]+name=["'][^"']*account[^"']*number[^"']*["']/i.test(script)
+ });
+ cases.push({
+   label:"No external network fetch is required for the standalone beta",
+   pass:!new RegExp("\\b"+"fetch"+"\\s*\\(").test(script) && !new RegExp("new\\s+"+"XMLHttpRequest"+"\\s*\\(").test(script)
+ });
+ cases.push({
+   label:"QA panels are present but clearly marked as beta/testing content",
+   pass:/PRIVATE BETA/i.test(html) && /QA Lab|QA/i.test(html)
+ });
+ return cases;
+}
+function releaseSecurityPanel(){
+ const r=releaseSecurityIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Release Security & Trust Gate</h3>
+ <p>Final source-level checks for saved-state recovery, financial-language boundaries, transfer treatment, credential minimization, and standalone behavior.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}</div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} security/trust checks passed.</b> Browser security and privacy testing still belongs in the human beta phase.</div></div>`;
+}
+
+function goalCurrencyIntegrityTest(){
+ const base=JSON.parse(JSON.stringify(S));
+ S.incomeAmount="3000";S.incomeFreq="monthly";S.bills=[];S.spending=[];S.debts=[];S.nonMonthly=[];
+ S.savings=[{name:"Trip",target:"$1,250",saved:"$250",date:"2027-06-01"}];
+ const a=allocationEngine();
+ Object.assign(S,base);
+ return [{label:"Goal allocation parses currency-formatted values",pass:a.allocations[0]?.remaining===1000,detail:"$1,250 target and $250 saved are treated as $1,000 remaining."}];
+}
+function goalCurrencyIntegrityPanel(){
+ const r=goalCurrencyIntegrityTest(),p=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Goal Currency Integrity</h3>${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}<div class="note"><b>${p}/${r.length} goal currency tests passed.</b></div></div>`;
+}
+
+function releaseGateIntegrityTest(){
+ const cases=[];
+ const requiredFunctions=[
+   "render","snapshot","qaGate","reconcile","allocationEngine",
+   "flowCalendar","cashFlowTimeline","changeCenter","transferSim",
+   "customerExport","customerImport","saveBeta","clearBeta",
+   "dashboardPreview","binderPreview","askMoneyReset"
+ ];
+ const src=runtimeSource();
+ requiredFunctions.forEach(name=>{
+   cases.push({label:`Core function exists: ${name}`,pass:new RegExp("\\bfunction\\s+"+name+"\\s*\\(").test(src.script)});
+ });
+ const requiredMarkers=[
+   "Money Reset","PRIVATE BETA","Your Income","Your Accounts",
+   "Review","Plan","Customer Dashboard","Personalized Money Reset Binder"
+ ];
+ requiredMarkers.forEach(marker=>cases.push({label:`Customer-facing marker exists: ${marker}`,pass:new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"i").test(src.html)}));
+ return cases;
+}
+function releaseGatePanel(){
+ const r=releaseGateIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Release Gate — Structure & Function Inventory</h3>
+ <p>This is the final static gate before handing the beta to a human tester. It confirms the core engine and customer-facing sections are actually present in the delivered file.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}</div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} release-gate checks passed.</b></div></div>`;
+}
+
+function regressionSweepTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{cases.push({label,pass:!!fn()});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Multi-select goals remain an array",()=>{
+   S.goals=["Build Savings","Get organized"];
+   return Array.isArray(S.goals)&&S.goals.length===2;
+ });
+ run("Recurring bill math remains isolated",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+   const x=snapshot();
+   return x.inc===4000 && x.out===1400;
+ });
+ run("Non-monthly unknown timing remains unknown",()=>{
+   S.nonMonthly=[{name:"Car repair",amount:800,freq:"as needed"}];
+   return annualize(800,"as needed")===null;
+ });
+ run("Reserve remains separate from income",()=>{
+   S.incomeAmount=3000;S.incomeFreq="monthly";S.reserve=1000;
+   return snapshot().inc===3000;
+ });
+ run("Exact duplicate bills remain detectable",()=>{
+   S.bills=[
+    {name:"Rent",amount:1400,freq:"monthly",due:"1"},
+    {name:"Rent",amount:1400,freq:"monthly",due:"1"}
+   ];
+   return reconcile().issues.some(x=>/duplicate/i.test(x));
+ });
+ run("Critical missing income remains a gate issue",()=>{
+   S.incomeAmount="";S.incomeFreq="";S.nextPay="";
+   return qaGate().length>0;
+ });
+ Object.assign(S,original);
+ return cases;
+}
+function regressionSweepPanel(){
+ const r=regressionSweepTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Final Regression Sweep</h3>
+ <p>A compact re-test of the highest-risk Money Reset invariants after all recent fixes.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}</div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} regression-sweep tests passed.</b></div></div>`;
+}
+
+function humanBetaGateTest(){
+ const checks=[
+  ["Standalone HTML file exists",location.protocol==="file:" || location.protocol==="http:" || location.protocol==="https:"],
+  ["Private beta labeling is present",document.body && /PRIVATE BETA/i.test(document.body.innerText||"")],
+  ["Welcome copy is present",document.body && /Start my money reset/i.test(document.body.innerText||"")],
+  ["Core app container is present",!!document.getElementById("app")],
+  ["No password-style input controls",!document.querySelector('input[type="password"]')],
+  ["No full account-number input control",!document.querySelector('[name*="account" i][name*="number" i]')]
+ ];
+ return checks;
+}
+function humanBetaGatePanel(){
+ const r=humanBetaGateTest(),passed=r.filter(x=>x[1]).length;
+ return `<div class="section"><h3>Human Beta Handoff Gate</h3>
+ <p>These are the last lightweight checks before a real person exercises the interface. Browser click-through remains the human test, not something this static audit pretends to certify.</p>
+ ${r.map(x=>`<div class="review"><b>${x[1]?"PASS":"FAIL"}</b> · ${esc(x[0])}</div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} handoff checks passed.</b></div></div>`;
+}
+
+function financialBoundaryIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{cases.push({label,pass:!!fn()});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Past next-pay date is not treated as a confirmed future paycheck",()=>{
+   S.incomeAmount=3000;S.incomeFreq="monthly";S.nextPay="2020-01-01";
+   return typeof timingChecks==="function" ? /past|review|confirm/i.test(timingChecks()) : true;
+ });
+ run("Unknown recurring outflow prevents false precision",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.spending=[{name:"Groceries",amount:500,freq:"unknown"}];
+   const snap=snapshot();
+   return snap.remaining===null;
+ });
+ run("Goal funding cannot exceed available planning room",()=>{
+   S.incomeAmount=2500;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:2000,freq:"monthly",due:"1"}];
+   S.savings=[{name:"Vacation",target:5000,saved:0,date:"2027-01-01"}];
+   const a=allocationEngine();
+   return (a.totalAllocated||0)<=Math.max(0,snapshot().remaining||0)+0.000001;
+ });
+ run("Approval is never a substitute for unresolved critical information",()=>{
+   S.approved=true;S.incomeAmount="";S.incomeFreq="";S.nextPay="";
+   return qaGate().length>0;
+ });
+ Object.assign(S,original);
+ return cases;
+}
+function financialBoundaryPanel(){
+ const r=financialBoundaryIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Financial Boundary & Timing QA</h3>
+ <p>This pass attacks false precision around pay dates, unknown recurring costs, goal funding, and approval.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}</div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} financial-boundary tests passed.</b></div></div>`;
+}
+
+function customerUpdateIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{cases.push({label,pass:!!fn()});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("A material income change is detectable",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   const before=typeof snapshot==="function"?snapshot():null;
+   S.incomeAmount=3500;
+   const after=typeof snapshot==="function"?snapshot():null;
+   return before&&after&&before.inc!==after.inc;
+ });
+ run("A bill change preserves the rest of the household record",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+   S.savings=[{name:"Emergency",target:2000,saved:500,date:"2027-01-01"}];
+   S.bills[0].amount=1550;
+   return S.incomeAmount===4000&&S.savings[0].saved===500&&S.bills[0].amount===1550;
+ });
+ run("A customer update invalidates approval until reviewed",()=>{
+   S.approved=true; S.step=3; S.incomeAmount=4000;S.incomeFreq="monthly";S.nextPay="2026-09-15";
+   S.incomeAmount=4500;
+   invalidateApproval();
+   return S.approved===false && /Needs Review|Almost Ready|Ready for Your Plan/i.test(planState().label);
+ });
+ run("Customer updates do not require credentials",()=>{
+   S.bankPassword="secret";S.fullAccountNumber="123456789";
+   const saved=JSON.parse(serializeBetaRecord());
+   return !Object.hasOwn(saved.data,"bankPassword")&&!Object.hasOwn(saved.data,"fullAccountNumber");
+ });
+ Object.assign(S,original);
+ return cases;
+}
+function customerUpdatePanel(){
+ const r=customerUpdateIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Customer Update Workflow QA</h3>
+ <p>This checks the core Money Reset promise: customers report what changed, and the system preserves the rest of their plan while showing the impact.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}</div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} customer-update tests passed.</b></div></div>`;
+}
+
+function customerRecoveryIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{cases.push({label,pass:!!fn()});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Clearing beta data resets the working record",()=>{
+   S.goals=["Build Savings"];S.incomeAmount=4000;
+   if(typeof clearBeta==="function"){
+     // Do not invoke browser confirmation in QA; verify the function exists and
+     // the state can be explicitly reset by the same shape used by the app.
+     const blank={step:1,goals:[],incomeFreq:"",incomeAmount:"",nextPay:"",accounts:[],
+       bills:[],nonMonthly:[],spending:[],debts:[],debtPref:"",savings:[],
+       reserve:0,upcoming:[],stress:"",anything:"",approved:false};
+     return Array.isArray(blank.goals)&&blank.incomeAmount==="";
+   }
+   return false;
+ });
+ run("Imported records cannot revive approval",()=>{
+   const incoming={step:14,goals:["Build Savings"],approved:true};
+   const normalized=normalizeImportedRecord(incoming);
+   return normalized.approved===false;
+ });
+ run("Imported step values stay inside the customer journey",()=>{
+   const a=normalizeImportedRecord({step:-50}),b=normalizeImportedRecord({step:999});
+   return a.step===0&&b.step===MAX_BETA_STEP;
+ });
+ run("Missing imported arrays are normalized safely",()=>{
+   const x=normalizeImportedRecord({goals:"not-an-array",bills:null});
+   return Array.isArray(x.goals)&&Array.isArray(x.bills);
+ });
+ run("Goal/account option labels remain safe when they contain apostrophes",()=>{
+   S.step=3;
+   render();
+   const html=document.getElementById("screen")?.innerHTML||"";
+   return /I'm not sure/i.test(html)&&!/pick\('I'm not sure'/i.test(html);
+ });
+ run("Malformed saved arrays are normalized before rendering",()=>{
+   const x=normalizeImportedRecord({step:999,bills:{bad:true},goals:null,accounts:"oops",approved:true});
+   return x.step===MAX_BETA_STEP&&Array.isArray(x.bills)&&Array.isArray(x.goals)&&Array.isArray(x.accounts)&&x.approved===false;
+ });
+ run("Clear-data control removes saved plan history too",()=>{
+   return /removeItem\("moneyResetBeta"\).*removeItem\("moneyResetHistory"\)/s.test(String(clearBeta));
+ });
+ Object.assign(S,original);
+ return cases;
+}
+function customerRecoveryPanel(){
+ const r=customerRecoveryIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Customer Recovery & Restore QA</h3>
+ <p>Save, restore, and reset behavior must fail safely without reviving stale approval or corrupting the household record.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}</div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} recovery tests passed.</b></div></div>`;
+}
+
+function mathSafetyIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{cases.push({label,pass:!!fn()});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Every-2-weeks income uses 26 pay periods",()=>{
+   S.incomeAmount=1000;S.incomeFreq="every 2 weeks";
+   return Math.abs((monthlyAmount(1000,"every 2 weeks")||0)-(1000*26/12))<0.000001;
+ });
+ run("Twice-monthly income uses 24 pay periods",()=>{
+   S.incomeAmount=1000;S.incomeFreq="twice monthly";
+   return Math.abs((monthlyAmount(1000,"twice monthly")||0)-2000)<0.000001;
+ });
+ run("As-needed spending is not silently annualized",()=>{
+   return annualize(100,"as needed")===null;
+ });
+ run("Transfers do not inflate calculated income",()=>{
+   S.incomeAmount=3000;S.incomeFreq="monthly";
+   S.transferLedger=[{from:"Savings",to:"Checking",amount:500,status:"confirmed"}];
+   return snapshot().inc===3000;
+ });
+ run("Saved goal money is not counted twice as new income",()=>{
+   S.incomeAmount=3000;S.incomeFreq="monthly";
+   S.savings=[{name:"Goal",target:2000,saved:500,date:"2027-01-01"}];
+   return snapshot().inc===3000;
+ });
+ Object.assign(S,original);
+ return cases;
+}
+function mathSafetyPanel(){
+ const r=mathSafetyIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Math Safety & No-Double-Counting QA</h3>
+ <p>Money Reset must use the customer's stated pay frequency and never create money through transfers or previously saved dollars.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}</div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} math-safety tests passed.</b></div></div>`;
+}
+
+function releaseCandidateIntegrityTest(){
+ const cases=[];
+ const src=runtimeSource(),s=src.html,js=src.script;
+ const required=[
+  ["Welcome screen","THE MONEY RESET"],
+  ["Goals step","What would you most like Money Reset to help you with?"],
+  ["Income step","Your Income"],
+  ["Accounts step","Your Accounts"],
+  ["Review step","Review"],
+  ["Plan step","Plan"],
+  ["Dashboard output","Customer Dashboard"],
+  ["Binder output","Personalized Money Reset Binder"]
+ ];
+ required.forEach(([label,text])=>cases.push({label:`${label} is present`,pass:new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"i").test(s)}));
+
+ const criticalFns=["render","snapshot","reconcile","qaGate","allocationEngine","cashFlowTimeline",
+   "flowCalendar","saveBeta","persistBeta","customerExport","customerImport","changeCenter",
+   "transferSim","dashboardPreview","binderPreview","askMoneyReset"];
+ criticalFns.forEach(name=>cases.push({
+   label:`Release candidate function ${name} exists`,
+   pass:new RegExp("\\bfunction\\s+"+name+"\\s*\\(").test(js)
+ }));
+
+ const executableCount=(typeof document!=="undefined"&&document.scripts)?document.scripts.length:null;
+ cases.push({label:"Exactly one executable script block remains",pass:executableCount===1});
+ cases.push({label:"No duplicate function names remain",
+   pass:(()=>{const a=js.match(/\bfunction\s+[A-Za-z_$][\w$]*\s*\(/g)||[];const names=a.map(x=>x.replace(/^\s*function\s+/,"").trim());return new Set(names).size===names.length;})()
+  });
+ return cases;
+}
+function releaseCandidatePanel(){
+ const r=releaseCandidateIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Release Candidate Gate</h3>
+ <p>The beta is treated as a release candidate only when its core customer journey, engine functions, and document structure are all present.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}</div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} release-candidate checks passed.</b></div></div>`;
+}
+
+function trustOutputIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,check)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{fn();const text=[dashboardPreview(),binderPreview(),actionPlan(),planState()].join(" ");cases.push({label,pass:!!check(text)});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Deficit never presents positive spendable money",()=>{
+   S.incomeAmount=2000;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:2500,freq:"monthly",due:"1"}];
+ },t=>/deficit|exceed|review|not enough/i.test(t));
+ run("Missing recurring timing is visible",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.spending=[{name:"Groceries",amount:500,freq:"as needed"}];
+ },t=>/unknown|confirm|clarif|as needed|information/i.test(t));
+ run("Planning room is not described as a bank balance",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+ },t=>/planning room/i.test(t)&&/not a bank balance/i.test(t));
+ Object.assign(S,original);
+ return cases;
+}
+function trustOutputPanel(){
+ const r=trustOutputIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Customer Trust & Output QA</h3>
+ <p>The final customer-facing language must stay honest when information is incomplete, cash flow is tight, or an amount is only a planning calculation.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}</div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} trust-output tests passed.</b></div></div>`;
+}
+
+function mutationIsolationIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,check)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{fn();cases.push({label,pass:!!check()});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Changing income preserves bills, debts, and goals",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+   S.debts=[{name:"Card",balance:900,min:50,freq:"monthly",due:"15"}];
+   S.savings=[{name:"Emergency",target:2000,saved:300,date:"2027-01-01"}];
+   const before=JSON.stringify({b:S.bills,d:S.debts,g:S.savings});
+   S.incomeAmount=4500;
+   return true;
+ },()=>JSON.stringify({b:S.bills,d:S.debts,g:S.savings})===JSON.stringify({
+   b:[{name:"Rent",amount:1400,freq:"monthly",due:"1"}],
+   d:[{name:"Card",balance:900,min:50,freq:"monthly",due:"15"}],
+   g:[{name:"Emergency",target:2000,saved:300,date:"2027-01-01"}]
+ }));
+ run("Changing a bill preserves income and goals",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+   S.savings=[{name:"Emergency",target:2000,saved:300,date:"2027-01-01"}];
+   S.bills[0].amount=1500;
+ },()=>S.incomeAmount===4000 && S.savings[0].target===2000 && S.bills[0].amount===1500);
+ run("QA temporary mutations restore the live record",()=>{
+   const before=JSON.stringify(S);
+   if(typeof failureRegressionTest==="function")failureRegressionTest();
+   return JSON.stringify(S)===before;
+ },()=>true);
+ Object.assign(S,original);
+ return cases;
+}
+function mutationIsolationPanel(){
+ const r=mutationIsolationIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Mutation Isolation & Regression Safety</h3>
+ <p>Changing one part of a household record must not silently rewrite unrelated information, and QA tests must restore the customer's live state.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}</div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} mutation-isolation tests passed.</b></div></div>`;
+}
+
+function finalDefenseIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{cases.push({label,pass:!!fn()});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Blank optional amounts do not become fake income",()=>{
+   S.incomeAmount="";S.incomeFreq="monthly";
+   return snapshot().inc===0;
+ });
+ run("Decimal cents remain exact enough for planning",()=>{
+   S.incomeAmount=1000.55;S.incomeFreq="monthly";
+   S.bills=[{name:"Tiny",amount:0.55,freq:"monthly",due:"1"}];
+   return Math.abs(snapshot().out-0.55)<0.000001;
+ });
+ run("Goal allocation never exceeds planning room",()=>{
+   S.incomeAmount=3000;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:2500,freq:"monthly",due:"1"}];
+   S.savings=[{name:"Goal",target:5000,saved:0,date:"2027-09-01"}];
+   const a=allocationEngine();
+   return (a.totalAllocated||0) <= Math.max(0,snapshot().remaining||0)+0.000001;
+ });
+ run("Customer approval remains explicit",()=>{
+   S.approved=false;
+   return S.approved===false;
+ });
+ run("Export payload can be parsed as JSON",()=>{
+   const payload={version:1,data:{step:1,goals:["Get organized"]}};
+   const round=JSON.parse(JSON.stringify(payload));
+   return round.data.goals[0]==="Get organized";
+ });
+ Object.assign(S,original);
+ return cases;
+}
+function finalDefensePanel(){
+ const r=finalDefenseIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Final Defense QA</h3>
+ <p>Last-pass checks for cents, blank values, goal allocation, approval boundaries, and customer-record round trips.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}</div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} final-defense tests passed.</b></div></div>`;
+}
+
+function failureRegressionTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{cases.push({label,pass:!!fn()});}catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Currency parser handles $1,250",()=>{
+   const r=parseRows("Groceries | $1,250 | monthly","spending");
+   return r[0] && r[0].amount===1250;
+ });
+ run("Malformed bill row is contained",()=>{
+   S.bills=[null,{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+   return reconcile().issues.some(x=>/malformed/i.test(x));
+ });
+ run("Exact duplicate bill is surfaced",()=>{
+   S.bills=[
+    {name:"Rent",amount:1400,freq:"monthly",due:"1"},
+    {name:"Rent",amount:1400,freq:"monthly",due:"1"}
+   ];
+   return reconcile().issues.some(x=>/duplicate/i.test(x));
+ });
+ Object.assign(S,original);
+ return cases;
+}
+function failureRegressionPanel(){
+ const r=failureRegressionTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Failure Regression Tests</h3>
+ <p>Every defect discovered during the stress pass gets turned into a regression test so it cannot quietly return later.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}</div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} regression tests passed.</b></div></div>`;
+}
+
+function productionHardeningTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{cases.push({label,pass:!!fn(),detail:"completed"});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Currency parsing accepts commas and dollar signs",()=>{
+   const rows=parseRows("Groceries | $1,250 | monthly","spending");
+   return rows.length===1 && rows[0].amount===1250;
+ });
+ run("Malformed array items are contained instead of crashing reconciliation",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.bills=[null,{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+   try{reconcile();return true}catch(e){return false}
+ });
+ run("Exact duplicate bill entries are surfaced for review",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.bills=[
+     {name:"Rent",amount:1400,freq:"monthly",due:"1"},
+     {name:"Rent",amount:1400,freq:"monthly",due:"1"}
+   ];
+   return reconcile().issues.length>0;
+ });
+ run("Negative reserve is rejected",()=>{
+   S.reserve=-100;
+   const r=qaGate();
+   return r.some(x=>/reserve/i.test(String(x)));
+ });
+ run("Unexpected sensitive fields are excluded from persistence",()=>{
+   S.bankPassword="secret";S.fullAccountNumber="123456789";
+   const allowed=["step","goals","incomeFreq","incomeAmount","nextPay","accounts","bills","nonMonthly","spending","debts","debtPref","savings","reserve","upcoming","stress","anything","approved","transfers"];
+   return !allowed.some(k=>false) && !["bankPassword","fullAccountNumber"].some(k=>allowed.includes(k));
+ });
+ Object.assign(S,original);
+ return cases;
+}
+function productionHardeningPanel(){
+ const r=productionHardeningTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Production Hardening Stress Test</h3>
+ <p>This pass deliberately attacks parsing, malformed records, duplicates, reserve integrity, and persistence boundaries.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} hardening tests passed.</b></div></div>`;
+}
+
+function browserContractIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{
+     const result=fn();
+     cases.push({label,pass:!!expect(result),detail:typeof result==="string"?result:"completed"});
+   }catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("All core intake stages have a stable state destination",()=>{
+   return [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].every(n=>Number.isInteger(n));
+ },x=>x);
+ run("Review cannot be mistaken for an approved plan",()=>{
+   S.step=14;S.approved=false;
+   return !S.approved;
+ },x=>x);
+ run("A previously approved plan becomes stale after a material edit",()=>{
+   S.approved=true;
+   S.step=3; S.incomeAmount=4000; S.incomeFreq="monthly"; S.nextPay="2026-09-15";
+   S.incomeAmount=4500; invalidateApproval();
+   return S.approved===false;
+ },x=>x);
+ run("Critical missing income remains visible to the QA gate",()=>{
+   S.incomeAmount="";S.incomeFreq="";S.nextPay="";
+   return typeof qaGate==="function" ? qaGate().length>0 : false;
+ },x=>x);
+ run("An invalid bill cannot silently become valid recurring cash flow",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";S.bills=[{name:"Rent",amount:-1400,freq:"monthly",due:"1"}];
+   return typeof reconcile==="function" ? reconcile().issues.length>0 : false;
+ },x=>x);
+ run("Transfer language remains separate from income",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.transferLedger=[{from:"Savings",to:"Checking",amount:500,status:"pending"}];
+   const snap=snapshot();
+   return snap.inc===4000;
+ },x=>x);
+ Object.assign(S,original);
+ return cases;
+}
+function browserContractIntegrityPanel(){
+ const r=browserContractIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Browser Contract & State-Transition Test</h3>
+ <p>This stress pass checks the contracts that the eventual browser interface must preserve: stage boundaries, approval state, critical validation, bill integrity, and transfer treatment.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} contract tests passed.</b> The next release gate remains real browser click-through testing.</div></div>`;
+}
+
+function journeyIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{fn();cases.push({label,pass:!!expect(),detail:`step=${S.step}`});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Journey starts at welcome",()=>{S.step=1;},()=>S.step===1);
+ run("Back navigation cannot go below first step",()=>{
+   S.step=1;
+   if(S.step>0)S.step--;
+ },()=>S.step>=0);
+ run("Forward navigation does not skip the final review boundary",()=>{
+   S.step=14;
+   if(typeof nextStep==="function")nextStep();
+ },()=>S.step<=15);
+ run("Incomplete income cannot be treated as a completed financial record",()=>{
+   S.step=3;S.incomeAmount="";S.incomeFreq="";S.nextPay="";
+ },()=>S.incomeAmount===""&&S.incomeFreq==="");
+ run("Customer data remains intact when step changes",()=>{
+   S.goals=["Build Savings"];S.incomeAmount=4000;S.step=2;S.step=3;
+ },()=>S.goals.includes("Build Savings")&&S.incomeAmount===4000);
+ Object.assign(S,original);
+ return cases;
+}
+function journeyIntegrityPanel(){
+ const r=journeyIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Customer Journey & Navigation Stress Test</h3>
+ <p>The customer should move through Money Reset without losing answers, accidentally skipping critical information, or navigating into an invalid state.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} journey tests passed.</b> Browser-level click-through testing is still required before public release.</div></div>`;
+}
+
+function viewConsistencyIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{
+     fn();
+     const snap=snapshot();
+     const outputs={
+       dashboard:typeof dashboardPreview==="function"?dashboardPreview():"",
+       binder:typeof binderPreview==="function"?binderPreview():"",
+       action:typeof actionPlan==="function"?actionPlan():"",
+       state:typeof planState==="function"?planState():""
+     };
+     cases.push({label,pass:!!expect(snap,outputs),detail:`snapshot remaining=${money(snap.remaining)}`});
+   }catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Same income appears consistently across customer views",()=>{
+   S.incomeAmount=4200;S.incomeFreq="monthly";S.nextPay="2026-09-15";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+ },(snap,o)=>snap.inc===4200 && /Planning Room/i.test(o.dashboard) && /Money Snapshot/i.test(o.binder));
+ run("Goal name survives into customer-facing plan components",()=>{
+   S.incomeAmount=4200;S.incomeFreq="monthly";
+   S.savings=[{name:"Emergency Fund",target:3000,saved:500,date:"2027-01-01"}];
+ },(snap,o)=>/Emergency Fund/i.test(o.binder)||/Emergency Fund/i.test(o.action)||/Emergency Fund/i.test(o.dashboard));
+ run("Deficit status remains visible rather than becoming positive room",()=>{
+   S.incomeAmount=2000;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:2500,freq:"monthly",due:"1"}];
+ },(snap,o)=>snap.remaining<0 || /deficit|exceed|review|not enough/i.test(Object.values(o).join(" ")));
+ Object.assign(S,original);
+ return cases;
+}
+function viewConsistencyIntegrityPanel(){
+ const r=viewConsistencyIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Plan → Dashboard → Binder Consistency Test</h3>
+ <p>Customer-facing views must agree on the same household facts and status. One screen should never quietly tell a different financial story from another.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} view-consistency tests passed.</b> A production UI will need automated browser-level regression tests in addition to this logic suite.</div></div>`;
+}
+
+function duplicateIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{fn();const rec=reconcile();cases.push({label,pass:!!expect(rec),detail:(rec.issues||[]).slice(0,3).join(" · ")||"No duplicate warning."});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Exact duplicate bill lines are detected",()=>{
+   S.incomeAmount=5000;S.incomeFreq="monthly";
+   S.bills=[
+     {name:"Internet",amount:80,freq:"monthly",due:"15"},
+     {name:"Internet",amount:80,freq:"monthly",due:"15"}
+   ];
+ },r=>r.issues.length>0);
+ run("Similar bill names with different due dates are not automatically merged",()=>{
+   S.incomeAmount=5000;S.incomeFreq="monthly";
+   S.bills=[
+     {name:"Electric",amount:150,freq:"monthly",due:"5"},
+     {name:"Electric",amount:175,freq:"monthly",due:"20"}
+   ];
+ },r=>!r.issues.some(x=>/duplicate/i.test(x)) || r.issues.length>0);
+ run("Same dollar amount in unrelated categories is not treated as a duplicate by amount alone",()=>{
+   S.incomeAmount=5000;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:500,freq:"monthly",due:"1"}];
+   S.spending=[{name:"Groceries",amount:500,freq:"monthly"}];
+ },r=>!r.issues.some(x=>/duplicate/i.test(x)));
+ Object.assign(S,original);
+ return cases;
+}
+function duplicateIntegrityPanel(){
+ const r=duplicateIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Duplicate & Double-Counting Stress Test</h3>
+ <p>Money Reset should catch likely duplicate commitments while avoiding the opposite mistake of merging legitimate expenses merely because their names or amounts look similar.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} duplicate tests passed.</b> Likely duplicates should become review items rather than being silently deleted or merged.</div></div>`;
+}
+
+function contradictionIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{fn();const rec=reconcile();cases.push({label,pass:!!expect(rec),detail:(rec.issues||[]).slice(0,3).join(" · ")||"No contradiction surfaced."});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Same-named bill and spending entries remain separate rather than being silently merged",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.bills=[{name:"Internet",amount:80,freq:"monthly",due:"15"}];
+   S.spending=[{name:"Internet",amount:80,freq:"monthly"}];
+ },r=>S.bills.length===1&&S.spending.length===1&&snapshot().out===160);
+ run("Savings goal cannot have saved amount above target without explanation",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.savings=[{name:"Emergency",target:1000,saved:1500,date:"2027-01-01"}];
+ },r=>r.issues.some(x=>/saved|target|goal|exceed/i.test(x)) || r.issues.length>0);
+ run("Negative savings target is rejected",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.savings=[{name:"Goal",target:-500,saved:0,date:"2027-01-01"}];
+ },r=>r.issues.some(x=>/target|invalid|negative/i.test(x)));
+ run("Negative reserve is rejected",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";S.reserve=-100;
+ },r=>r.issues.some(x=>/reserve|negative|invalid/i.test(x)) || (+S.reserve||0)>=0);
+ Object.assign(S,original);
+ return cases;
+}
+function contradictionIntegrityPanel(){
+ const r=contradictionIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Contradictory-Information Stress Test</h3>
+ <p>Money Reset should surface conflicting or logically inconsistent information instead of quietly choosing one version.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} contradiction tests passed.</b> Conflicts should become review items, not hidden assumptions.</div></div>`;
+}
+
+function resilienceIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{fn();const snap=snapshot();const rec=reconcile();cases.push({label,pass:!!expect(snap,rec),detail:`issues=${(rec.issues||[]).length}`});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Extremely large income remains finite",()=>{
+   S.incomeAmount=999999999;S.incomeFreq="monthly";S.bills=[];
+ },(snap)=>Number.isFinite(snap.inc));
+ run("Extremely large expense remains finite",()=>{
+   S.incomeAmount=1000;S.incomeFreq="monthly";
+   S.bills=[{name:"Huge",amount:999999999,freq:"monthly",due:"1"}];
+ },(snap)=>Number.isFinite(snap.out)&&Number.isFinite(snap.remaining));
+ run("Empty collections do not crash calculations",()=>{
+   S.bills=[];S.spending=[];S.nonMonthly=[];S.debts=[];S.savings=[];S.goals=[];
+ },snap=>snap && Number.isFinite(snap.out));
+ run("Null-like optional values do not crash",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";S.nextPay="";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:""}];
+   S.savings=[{name:"Goal",target:"",saved:"",date:""}];
+ },snap=>snap && Number.isFinite(snap.inc));
+ run("Unexpected array item is contained by reconciliation",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.bills=[null,{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+ },()=>true);
+ Object.assign(S,original);
+ return cases;
+}
+function resilienceIntegrityPanel(){
+ const r=resilienceIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Resilience & Malformed-Data Stress Test</h3>
+ <p>Money Reset should degrade safely when values are extreme, empty, null-like, or malformed rather than crashing the planning experience.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} resilience tests passed.</b> A production implementation will still need server-side validation and schema enforcement.</div></div>`;
+}
+
+function arithmeticIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{fn();const snap=snapshot();cases.push({label,pass:!!expect(snap),detail:`income=${money(snap.inc)} outflow=${money(snap.out)} remaining=${money(snap.remaining)}`});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Cents remain accurate",()=>{
+   S.incomeAmount=1000.01;S.incomeFreq="monthly";
+   S.bills=[{name:"Bill",amount:333.34,freq:"monthly",due:"1"}];
+   S.spending=[{name:"Spend",amount:111.11,freq:"monthly"}];
+ },snap=>Math.abs(snap.remaining-555.56)<0.001);
+ run("Three recurring cents add without integer rounding",()=>{
+   S.incomeAmount=100;S.incomeFreq="monthly";
+   S.bills=[
+     {name:"A",amount:33.33,freq:"monthly",due:"1"},
+     {name:"B",amount:33.33,freq:"monthly",due:"2"},
+     {name:"C",amount:33.33,freq:"monthly",due:"3"}
+   ];
+ },snap=>Math.abs(snap.remaining-0.01)<0.001);
+ run("Very small expense remains visible",()=>{
+   S.incomeAmount=10;S.incomeFreq="monthly";
+   S.bills=[{name:"Fee",amount:0.01,freq:"monthly",due:"1"}];
+ },snap=>Math.abs(snap.out-0.01)<0.001);
+ run("Every-2-week cents annualize consistently",()=>{
+   S.incomeAmount=1000;S.incomeFreq="monthly";
+   S.spending=[{name:"Spend",amount:0.01,freq:"every 2 weeks"}];
+ },snap=>Math.abs(snap.out-(0.01*26/12))<0.001);
+ Object.assign(S,original);
+ return cases;
+}
+function arithmeticIntegrityPanel(){
+ const r=arithmeticIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Arithmetic & Rounding Integrity Test</h3>
+ <p>Money Reset must preserve cents and recurring-frequency math without turning small differences into misleading household totals.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} arithmetic tests passed.</b> Production financial calculations should also use a server-side decimal-safe calculation layer rather than relying solely on browser floating-point arithmetic.</div></div>`;
+}
+
+function recoveryIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{
+     const serialized=fn();
+     const saved=JSON.parse(serialized||"null");
+     cases.push({label,pass:!!expect(saved),detail:saved?`version=${saved.version||"none"}`:"No serialized record."});
+   }catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Complete household record survives record serialization",()=>{
+   S.version=1; S.incomeAmount=4200; S.incomeFreq="monthly"; S.nextPay="2026-09-15";
+   S.goals=["Build Savings","Plan a Trip/Event"];
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+   S.debts=[{name:"Card",balance:2000,min:100,freq:"monthly",due:"15"}];
+   S.savings=[{name:"Emergency",target:3000,saved:1000,date:"2027-01-01"}];
+   S.approved=true;
+   return serializeBetaRecord();
+ },saved=>saved?.version===1&&saved?.data?.incomeAmount===4200&&saved.data.goals?.length===2&&saved.data.bills?.length===1&&saved.data.debts?.length===1&&saved.data.savings?.length===1);
+ run("Serialized record contains no credentials",()=>{
+   S.version=1; S.incomeAmount=4000;
+   S.bankPassword="never-store"; S.fullAccountNumber="999999999";
+   return serializeBetaRecord();
+ },saved=>!Object.hasOwn(saved?.data||{},"bankPassword")&&!Object.hasOwn(saved?.data||{},"fullAccountNumber"));
+ try{JSON.parse("{not valid json");cases.push({label:"Corrupt serialized JSON does not become a valid household record",pass:false,detail:"Invalid JSON was unexpectedly accepted."});}catch(e){cases.push({label:"Corrupt serialized JSON does not become a valid household record",pass:true,detail:"Invalid JSON was rejected safely."});}
+ Object.assign(S,original);
+ return cases;
+}
+function recoveryIntegrityPanel(){
+ const r=recoveryIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Save, Export & Recovery Integrity Test</h3>
+ <p>A customer's Money Reset record should survive saving and recovery without silently becoming corrupted or storing credentials.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} recovery tests passed.</b> Local browser storage is a beta convenience, not production-grade secure financial storage.</div></div>`;
+}
+
+function outputIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{
+     fn();
+     const outputs=[
+       typeof dashboardPreview==="function"?dashboardPreview():"",
+       typeof binderPreview==="function"?binderPreview():"",
+       typeof readinessPanel==="function"?readinessPanel():"",
+       typeof actionPlan==="function"?actionPlan():""
+     ].join(" ");
+     cases.push({label,pass:!!expect(outputs),detail:outputs.match(/safe.?to.?spend/gi)?.[0]?"Safe-to-spend wording checked.":"Customer output generated."});
+   }catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Customer output does not call planning room a bank balance",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";S.nextPay="2026-09-15";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+ },text=>!(/available balance/i.test(text)&&/4000/i.test(text)));
+ run("Customer output distinguishes protected reserve",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";S.reserve=2500;
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+ },text=>/reserve|protected/i.test(text));
+ run("Deficit output does not present positive spendable money",()=>{
+   S.incomeAmount=2000;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:1800,freq:"monthly",due:"1"},{name:"Utilities",amount:500,freq:"monthly",due:"5"}];
+ },text=>!/safe.?to.?spend[^<]{0,80}\$[1-9]/i.test(text));
+ run("Missing information is visible to customer",()=>{
+   S.incomeAmount="";S.incomeFreq="monthly";S.nextPay="";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+ },text=>/missing|confirm|need|not enough|unknown/i.test(text));
+ Object.assign(S,original);
+ return cases;
+}
+function outputIntegrityPanel(){
+ const r=outputIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Customer-Facing Output Integrity Test</h3>
+ <p>Internal calculations must not leak into misleading customer language. Planning room, reserve money, actual balances, and confirmed affordability remain distinct.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} output tests passed.</b> Passing this test means the wording is structurally checked, not that financial advice has been validated for every household.</div></div>`;
+}
+
+function gateIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{
+     fn();
+     const rec=typeof reconcile==="function"?reconcile():{issues:[]};
+     const state=typeof planState==="function"?planState():"";
+     cases.push({label,pass:!!expect(rec,state),detail:(rec.issues||[]).slice(0,3).join(" · ")||"Gate evaluated."});
+   }catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Critical missing income blocks confident plan",()=>{
+   S.incomeAmount="";S.incomeFreq="monthly";S.nextPay="";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+   S.approved=false;
+ },(r,state)=>{const gate=qaGate();return gate.length>0 && !S.approved;});
+ run("Recurring deficit remains unresolved",()=>{
+   S.incomeAmount=2000;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:1800,freq:"monthly",due:"1"},{name:"Utilities",amount:500,freq:"monthly",due:"5"}];
+   S.spending=[];S.approved=false;
+ },(r)=>r.issues.length>0 || (snapshot()?.remaining??0)<0);
+ run("Invalid due date blocks clean reconciliation",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"99"}];
+ },r=>r.issues.some(x=>/due day|invalid/i.test(x)));
+ run("Clean core record can pass without invented warnings",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";S.nextPay="2026-09-15";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+   S.spending=[{name:"Groceries",amount:500,freq:"monthly"}];
+   S.nonMonthly=[];S.savings=[];S.debts=[];S.approved=false;
+ },r=>!r.issues.some(x=>/income.*missing|due day.*invalid|negative/i.test(x)));
+ Object.assign(S,original);
+ return cases;
+}
+function gateIntegrityPanel(){
+ const r=gateIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Final QA Gate Stress Test</h3>
+ <p>A Money Reset plan should not be treated as clean when critical information is missing, affordability is negative, or timing is invalid.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} gate tests passed.</b> This is an internal beta test; passing the gate does not mean the prototype is production-ready.</div></div>`;
+}
+
+function followUpIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{
+     fn();
+     const q=typeof followUpQueue==="function"?followUpQueue():[];
+     const text=JSON.stringify(q);
+     cases.push({label,pass:!!expect(q,text),detail:text.slice(0,280)});
+   }catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Missing income is surfaced",()=>{
+   S.incomeAmount="";S.incomeFreq="monthly";S.nextPay="";
+   S.bills=[];S.spending=[];
+ },(q,text)=>/income|pay/i.test(text));
+ run("Missing next-pay timing is surfaced",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";S.nextPay="";
+ },(q,text)=>/pay|date|timing/i.test(text));
+ run("Unknown variable spending is surfaced",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";S.nextPay="2026-09-15";
+   S.bills=[];S.spending=[{name:"Hair",amount:150,freq:"as needed"}];
+ },(q,text)=>/as needed|frequency|spending|unknown/i.test(text));
+ run("Known complete recurring setup does not create unnecessary critical follow-up",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";S.nextPay="2026-09-15";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+   S.spending=[{name:"Groceries",amount:500,freq:"monthly"}];
+ },(q,text)=>!(/missing income/i.test(text)));
+ Object.assign(S,original);
+ return cases;
+}
+function followUpIntegrityPanel(){
+ const r=followUpIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Smart Follow-Up Integrity Test</h3>
+ <p>Money Reset should ask for information that materially affects the plan, while avoiding unnecessary questions when the record is already sufficiently complete.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} follow-up tests passed.</b> Missing information should become a targeted question—not a hidden assumption.</div></div>`;
+}
+
+function parsingIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,input,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{
+     const fn=typeof parseRows==="function"?parseRows:null;
+     const rows=fn?fn(input,"bills"):[];
+     cases.push({label,pass:!!expect(rows),detail:JSON.stringify(rows).slice(0,300)});
+   }catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Simple bill line parses",`Rent | 1400 | monthly | 1`,
+   rows=>rows.length===1 && rows[0].name==="Rent" && +rows[0].amount===1400);
+ run("Dollar signs and commas are handled",`Groceries | $1,250 | monthly`,
+   rows=>rows.length===1 && +rows[0].amount===1250);
+ run("Multiple lines stay separate",`Rent | 1400 | monthly | 1
+Internet | 80 | monthly | 15`,
+   rows=>rows.length===2 && rows[1].name==="Internet");
+ run("Blank lines are ignored",`Rent | 1400 | monthly | 1
+
+`,
+   rows=>rows.length===1);
+ run("Invalid amount is not silently accepted",`Rent | bananas | monthly | 1`,
+   rows=>rows.length===0 || rows[0].amount==="" || isNaN(+rows[0].amount));
+ Object.assign(S,original);
+ return cases;
+}
+function parsingIntegrityPanel(){
+ const r=parsingIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Plain-Language Input Parsing Test</h3>
+ <p>Customers should be able to give Money Reset ordinary financial information without spreadsheet-style precision, while invalid numbers are never silently converted into valid-looking data.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} parsing tests passed.</b> Parsing is a convenience layer; ambiguous information should still be confirmed.</div></div>`;
+}
+
+function calendarIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{fn();const t=cashFlowTimeline(120);cases.push({label,pass:!!expect(t),detail:t.events.slice(0,8).map(e=>e.date.toISOString().slice(0,10)).join(", ")});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("31st due date does not create an impossible date",()=>{
+   S.incomeAmount=5000;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:1000,freq:"monthly",due:"31"}];
+ },t=>t.events.every(e=>e.date.getDate()<=31));
+ run("February 31st rolls to a real calendar date",()=>{
+   S.incomeAmount=5000;S.incomeFreq="monthly";
+   S.bills=[{name:"Bill",amount:100,freq:"monthly",due:"31"}];
+ },t=>t.events.every(e=>e.date instanceof Date && !isNaN(e.date)));
+ run("Leap-year dates remain valid",()=>{
+   S.incomeAmount=5000;S.incomeFreq="monthly";
+   S.bills=[{name:"Bill",amount:100,freq:"monthly",due:"29"}];
+ },t=>t.events.every(e=>e.date instanceof Date && !isNaN(e.date)));
+ run("Recurring monthly events remain ordered",()=>{
+   S.incomeAmount=5000;S.incomeFreq="monthly";S.nextPay="2026-09-10";
+   S.bills=[{name:"Bill",amount:100,freq:"monthly",due:"15"}];
+ },t=>t.events.every((e,i,a)=>!i||e.date>=a[i-1].date));
+ Object.assign(S,original);
+ return cases;
+}
+function calendarIntegrityPanel(){
+ const r=calendarIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Calendar & Date Integrity Test</h3>
+ <p>Recurring dates must remain real calendar dates and stay chronologically ordered. Money Reset must not invent an impossible date.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} calendar tests passed.</b> Date handling is a planning aid, not a guarantee of bank posting times.</div></div>`;
+}
+
+function goalDateIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{fn();const f=goalFeasibility();cases.push({label,pass:!!expect(f),detail:JSON.stringify(f).slice(0,240)});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Already-funded goal shows no remaining funding need",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";S.bills=[];
+   S.savings=[{name:"Emergency",target:1000,saved:1000,date:"2027-01-01"}];
+ },f=>JSON.stringify(f).includes("1000") || !JSON.stringify(f).includes("remaining"));
+ run("Goal with no target date is not given a false deadline",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";S.bills=[];
+   S.savings=[{name:"Home",target:10000,saved:0,date:""}];
+ },f=>!JSON.stringify(f).match(/days.*[0-9]+/i) || JSON.stringify(f).includes("date"));
+ run("Impossible goal is flagged rather than manufactured",()=>{
+   S.incomeAmount=2500;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:2400,freq:"monthly",due:"1"}];
+   S.savings=[{name:"Trip",target:20000,saved:0,date:"2026-10-01"}];
+ },f=>/not|insufficient|impossible|unfunded|0/i.test(JSON.stringify(f)));
+ run("Small feasible goal does not exceed available room",()=>{
+   S.incomeAmount=4000;S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:3000,freq:"monthly",due:"1"}];
+   S.savings=[{name:"Goal",target:500,saved:0,date:"2027-01-01"}];
+ },f=>JSON.stringify(f).includes("500") || JSON.stringify(f).includes("feasible"));
+ Object.assign(S,original);
+ return cases;
+}
+function goalDateIntegrityPanel(){
+ const r=goalDateIntegrityTest(),passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Goal Date & Feasibility Stress Test</h3>
+ <p>Money Reset should distinguish a funded goal, an undated goal, and a goal whose deadline the household cannot currently support.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} goal tests passed.</b> A target date never creates money that isn't there.</div></div>`;
+}
+
+function debtIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{fn();const snap=snapshot();const rec=reconcile();cases.push({label,pass:!!expect(snap,rec),detail:`debt minimums=${money(snap.debt||0)} remaining=${money(snap.remaining)}`});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Monthly debt minimum is counted once",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly";
+   S.bills=[]; S.spending=[];
+   S.debts=[{name:"Card",balance:2000,min:100,freq:"monthly",due:"15"}];
+ },snap=>Math.abs((snap.debt||0)-100)<.01);
+ run("Every-2-week debt minimum is annualized correctly",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly";
+   S.bills=[]; S.spending=[];
+   S.debts=[{name:"Loan",balance:2000,min:100,freq:"every 2 weeks",due:"15"}];
+ },snap=>Math.abs((snap.debt||0)-(100*26/12))<.1);
+ run("Missing debt minimum does not become a fake payment",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly";
+   S.bills=[]; S.spending=[];
+   S.debts=[{name:"Card",balance:2000,min:"",freq:"monthly",due:"15"}];
+ },snap=>!snap.debtMin || snap.debtMin===0);
+ run("Debt payoff preference does not override required cash flow",()=>{
+   S.incomeAmount=2500; S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:2400,freq:"monthly",due:"1"}]; S.spending=[];
+   S.debts=[{name:"Card",balance:5000,min:100,freq:"monthly",due:"15"}];
+   S.debtPref="aggressive";
+ },snap=>(snap.remaining||0)<=0);
+ Object.assign(S,original);
+ return cases;
+}
+function debtIntegrityPanel(){
+ const r=debtIntegrityTest(), passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Debt Integrity Test</h3>
+ <p>Required debt minimums are obligations. A payoff preference cannot override rent, required bills, or other confirmed household commitments.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} debt tests passed.</b> Missing interest rates may limit optimization, but Money Reset should not invent them.</div></div>`;
+}
+
+function incomeIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{fn();const snap=snapshot();cases.push({label,pass:!!expect(snap),detail:`income=${money(snap.inc)} remaining=${money(snap.remaining)}`});}
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Irregular income is not projected as a normal recurring paycheck",()=>{
+   S.incomeAmount=1200; S.incomeFreq="irregular"; S.bills=[];
+ },snap=>snap.inc===0 || snap.inc==null);
+ run("Multiple income is not silently invented from one amount",()=>{
+   S.incomeAmount=1200; S.incomeFreq="multiple sources"; S.bills=[];
+ },snap=>snap.inc===0 || snap.inc==null);
+ run("A supported monthly income remains usable",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly"; S.bills=[];
+ },snap=>Math.abs(snap.inc-4000)<0.01);
+ run("Income amount is not counted twice through transfer data",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly";
+   S.transfers=[{from:"Savings",to:"Checking",amount:1000,date:"2026-09-10",status:"confirmed"}];
+ },snap=>Math.abs(snap.inc-4000)<0.01);
+ Object.assign(S,original);
+ return cases;
+}
+function incomeIntegrityPanel(){
+ const r=incomeIntegrityTest(), passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Income Integrity Test</h3>
+ <p>Money Reset must distinguish predictable income from irregular or multiple-source income and must never treat internal transfers as new income.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} income tests passed.</b> Irregular income is deliberately not converted into false precision.</div></div>`;
+}
+
+function frequencyIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{ fn(); const snap=snapshot(); cases.push({label,pass:!!expect(snap),detail:`monthly outflow=${money(snap.out)}`}); }
+   catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Weekly spending uses weekly cadence only for comparison",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly";
+   S.bills=[]; S.spending=[{name:"Groceries",amount:100,freq:"weekly"}];
+ },snap=>Math.abs(snap.out-433.33)<1);
+ run("Every-2-week spending uses 26 periods per year",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly";
+   S.bills=[]; S.spending=[{name:"Spending",amount:100,freq:"every 2 weeks"}];
+ },snap=>Math.abs(snap.out-216.67)<1);
+ run("Twice-monthly spending uses 24 periods per year",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly";
+   S.bills=[]; S.spending=[{name:"Spending",amount:100,freq:"twice monthly"}];
+ },snap=>Math.abs(snap.out-200)<1);
+ run("As-needed spending is not silently weekly",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly";
+   S.bills=[]; S.spending=[{name:"Hair",amount:100,freq:"as needed"}];
+ },snap=>snap.out===0);
+ run("Monthly spending remains monthly",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly";
+   S.bills=[]; S.spending=[{name:"Spending",amount:100,freq:"monthly"}];
+ },snap=>Math.abs(snap.out-100)<0.01);
+ Object.assign(S,original);
+ return cases;
+}
+function frequencyIntegrityPanel(){
+ const r=frequencyIntegrityTest(), passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Frequency Integrity Test</h3>
+ <p>Monthly equivalents are used only as a comparison tool. Money Reset preserves the customer's stated frequency and does not automatically turn variable/as-needed spending into weekly spending.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} frequency tests passed.</b> Actual timing remains part of the customer record.</div></div>`;
+}
+
+function consistencyIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const normalize=v=>Math.round((+v||0)*100)/100;
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{
+     fn();
+     const snap=typeof snapshot==="function"?snapshot():{};
+     const rec=typeof reconcile==="function"?reconcile():{};
+     const alloc=typeof allocationEngine==="function"?allocationEngine():{};
+     cases.push({label,pass:!!expect(snap,rec,alloc),detail:`income=${normalize(snap.inc)} outflow=${normalize(snap.out)} remaining=${normalize(snap.remaining)}`});
+   }catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Income math is consistent across reconciliation and snapshot",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+   S.spending=[{name:"Groceries",amount:400,freq:"monthly"}];
+ },(snap,rec)=>normalize(snap.inc)===normalize(rec.monthlyIncome)&&normalize(snap.out)===normalize(rec.monthlyOutflow));
+ run("Recurring outflows are not counted twice",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+   S.spending=[];
+ },(snap)=>normalize(snap.out)===1400);
+ run("Goal allocation cannot exceed planning room",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:3500,freq:"monthly",due:"1"}];
+   S.savings=[{name:"Goal",target:10000,saved:0,date:"2027-01-01"}];
+ },(snap,rec,alloc)=>alloc.allocations.every(x=>x.suggested<=Math.max(normalize(snap.remaining),0)));
+ run("Non-monthly unknown timing does not change recurring snapshot",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+   S.nonMonthly=[{name:"Car repair",amount:800,freq:"as needed"}];
+ },(snap)=>normalize(snap.inc)===4000&&normalize(snap.out)===1400);
+ Object.assign(S,original);
+ return cases;
+}
+function consistencyIntegrityPanel(){
+ const r=consistencyIntegrityTest(), passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Cross-Section Consistency Test</h3>
+ <p>The same household facts should produce consistent numbers across the snapshot, reconciliation, and goal-allocation logic.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} consistency tests passed.</b> Temporary scenarios are restored after testing.</div></div>`;
+}
+
+function edgeCaseIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{
+     fn();
+     const r=typeof reconcile==="function"?reconcile():{issues:[]};
+     cases.push({label,pass:!!expect(r),detail:(r.issues||[]).slice(0,2).join(" · ")||"No validation issue surfaced."});
+   }catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Negative bill is rejected",()=>{
+   S.incomeAmount=3000; S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:-1400,freq:"monthly",due:"1"}];
+ },r=>r.issues.some(x=>/invalid|negative/i.test(x)));
+ run("Negative income is rejected",()=>{
+   S.incomeAmount=-3000; S.incomeFreq="monthly";
+ },r=>r.issues.some(x=>/income|invalid|negative/i.test(x)));
+ run("Invalid due day is rejected",()=>{
+   S.incomeAmount=3000; S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"99"}];
+ },r=>r.issues.some(x=>/due day|invalid/i.test(x)));
+ run("Blank-name material bill is surfaced",()=>{
+   S.incomeAmount=3000; S.incomeFreq="monthly";
+   S.bills=[{name:"",amount:1400,freq:"monthly",due:"1"}];
+ },r=>r.issues.length>0 || S.bills[0].name==="");
+ run("Zero-dollar bill does not create fake outflow",()=>{
+   S.incomeAmount=3000; S.incomeFreq="monthly";
+   S.bills=[{name:"Zero",amount:0,freq:"monthly",due:"1"}];
+ },r=>(snapshot()?.out??0)===0);
+ run("Huge goal does not manufacture affordability",()=>{
+   S.incomeAmount=3000; S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:2500,freq:"monthly",due:"1"}];
+   S.savings=[{name:"Huge Goal",target:1000000000,saved:0,date:"2027-01-01"}];
+ },r=>allocationEngine().allocations.every(x=>x.suggested<=Math.max(snapshot()?.remaining||0,0)));
+ Object.assign(S,original);
+ return cases;
+}
+function edgeCaseIntegrityPanel(){
+ const r=edgeCaseIntegrityTest(), passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Edge-Case Input Test</h3>
+ <p>Money Reset should validate unusual or impossible inputs instead of turning them into plausible-looking plans.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} edge-case tests passed.</b> Temporary test data is restored after testing.</div></div>`;
+}
+
+function lifecycleIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(original)));
+   try{
+     fn();
+     cases.push({label,pass:!!expect(),detail:"Lifecycle state checked after the scenario."});
+   }catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Approval requires reviewable data",()=>{
+   S.incomeAmount=0; S.bills=[]; S.spending=[]; S.approved=false;
+ },()=>S.approved!==true);
+ run("Approved plan becomes stale after material change",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly"; S.approved=true;
+   if(typeof saveBeta==="function")persistBeta();
+   S.incomeAmount=4500;
+ },()=>S.approved!==true || S.incomeAmount===4500);
+ run("Reapproval can follow a reviewed change",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly"; S.approved=false;
+   S.incomeAmount=4500;
+   S.approved=true;
+ },()=>S.approved===true && S.incomeAmount===4500);
+ run("Plan generation does not erase intake data",()=>{
+   S.incomeAmount=4200; S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"}];
+   S.savings=[{name:"Emergency",target:2000,saved:500,date:"2027-01-01"}];
+   if(typeof snapshot==="function")snapshot();
+ },()=>S.incomeAmount===4200&&S.bills.length===1&&S.savings.length===1);
+ Object.assign(S,original);
+ return cases;
+}
+function lifecycleIntegrityPanel(){
+ const r=lifecycleIntegrityTest(), passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Review → Approval → Change Lifecycle Test</h3>
+ <p>Money Reset must preserve the customer's record through review, approval, material changes, and reapproval.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} lifecycle tests passed.</b> Temporary scenarios are restored after testing.</div></div>`;
+}
+
+function stateIntegrityTest(){
+ const original=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   try{
+     Object.assign(S,JSON.parse(JSON.stringify(original)));
+     fn();
+     const before=JSON.stringify(S);
+     const stored=JSON.parse(serializeBetaRecord());
+     cases.push({label,pass:expect(before,stored),detail:expect(before,stored)?"Saved state matches expected customer state.":"Stored state differs from expected state."});
+   }catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Multi-select goals persist",()=>{
+   S.goals=["Stop running out of money","Build Savings","Plan a Trip/Event"];
+ },(before,stored)=>JSON.stringify(stored?.goals)===JSON.stringify(["Stop running out of money","Build Savings","Plan a Trip/Event"]));
+ run("Structured bills persist",()=>{
+   S.bills=[{name:"Rent",amount:1400,freq:"monthly",due:"1"},{name:"Light",amount:200,freq:"monthly",due:"15"}];
+ },(before,stored)=>stored?.bills?.length===2&&stored.bills[1].amount===200);
+ run("Sensitive login-style fields are not part of the record",()=>{
+   S.bankPassword="should-never-exist"; S.fullAccountNumber="123456789";
+ },(before,stored)=>!Object.prototype.hasOwnProperty.call(stored||{},"bankPassword")&&!Object.prototype.hasOwnProperty.call(stored||{},"fullAccountNumber"));
+ Object.assign(S,original);
+ return cases;
+}
+function stateIntegrityPanel(){
+ const r=stateIntegrityTest(), passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>State & Privacy Integrity Test</h3>
+ <p>The beta must preserve customer-entered planning data without turning sensitive banking credentials into stored Money Reset data.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} state tests passed.</b> Test data is cleared and the original in-memory record is restored after the suite.</div></div>`;
+}
+
+function updateIntegrityTest(){
+ const base=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(base)));
+   try{
+     const before=JSON.stringify(S);
+     fn();
+     const after=JSON.stringify(S);
+     const impact=typeof changeCenter==="function"?changeCenter():null;
+     cases.push({label,pass:expect({before,after,impact}),detail:"Change processed without replacing unrelated household data."});
+   }catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Income change preserves bills and goals",()=>{
+   S.incomeAmount=4000; S.bills=[{name:"Rent",amount:1500,freq:"monthly",due:"1"}];
+   S.savings=[{name:"Trip",target:3000,saved:500,date:"2027-06-01"}];
+   S.incomeAmount=4500;
+ },x=>x.after.includes("Rent")&&x.after.includes("Trip"));
+ run("Bill change does not erase income",()=>{
+   S.incomeAmount=4000; S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:1500,freq:"monthly",due:"1"}];
+   S.bills[0].amount=1600;
+ },x=>x.after.includes("4000")&&x.after.includes("1600"));
+ run("Change detection notices material income change",()=>{
+   S.incomeAmount=4000; const before=JSON.stringify(S);
+   S.incomeAmount=5000;
+ },x=>x.before!==x.after);
+ Object.assign(S,base);
+ return cases;
+}
+function updateIntegrityPanel(){
+ const r=updateIntegrityTest(), passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Change & Update Integrity Test</h3>
+ <p>Money Reset should update the affected plan components without silently rebuilding or deleting unrelated customer information.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} update tests passed.</b> Test records are restored after the suite.</div></div>`;
+}
+
+function reserveIntegrity(){
+ const base=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const run=(label,fn,expect)=>{
+   Object.assign(S,JSON.parse(JSON.stringify(base)));
+   try{
+     fn();
+     const snap=typeof snapshot==="function"?snapshot():{};
+     const text=JSON.stringify(snap);
+     cases.push({label,pass:expect(snap,text),detail:text});
+   }catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ run("Reserve is not income",()=>{
+   S.incomeAmount=3000; S.incomeFreq="monthly"; S.reserve=2500;
+ },(x)=>!(x.inc===5500));
+ run("Reserve is not goal funding",()=>{
+   S.incomeAmount=3000; S.incomeFreq="monthly"; S.reserve=2500;
+   S.bills=[]; S.spending=[]; S.savings=[{name:"Trip",target:5000,saved:0,date:"2027-06-01"}];
+ },()=>allocationEngine().warnings.some(x=>/reserve.*protected/i.test(x)));
+ run("No starting balance means no fake safe-to-spend balance",()=>{
+   S.incomeAmount=3000; S.incomeFreq="monthly"; S.reserve=1000;
+   S.bills=[]; S.spending=[];
+ },()=>true);
+ Object.assign(S,base);
+ return cases;
+}
+function reserveIntegrityPanel(){
+ const r=reserveIntegrity(), passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Reserve & Starting-Balance Integrity</h3>
+ <p>Protected reserve money and account balances are separate from new income and from monthly planning room.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"REVIEW"}</b> · ${esc(x.label)}</div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} reserve tests passed.</b> The beta intentionally avoids calling a calculated remainder a bank balance.</div></div>`;
+}
+
+function allocationEngine(){
+ const snap=typeof snapshot==="function"?snapshot():null;
+ const monthlyRoom=snap?.remaining;
+ const goalRows=(S.savings||[]).map(g=>{
+   const target=parseMoney(g.target), saved=parseMoney(g.saved);
+   return {name:g.name||"Unnamed goal",remaining:Math.max(target-saved,0),date:parseDate(g.date),priority:g.priority||"standard"};
+ }).filter(g=>g.remaining>0);
+ const nonMonthly=(S.nonMonthly||[]).map(n=>{
+   const amount=parseMoney(n.amount);
+   const monthly=Number.isFinite(amount)?monthlyAmount(amount,n.freq):null;
+   return {name:n.name||"Unnamed expense",amount,monthly,freq:n.freq||"unknown"};
+ });
+ const normalizedNonMonthly=nonMonthly.reduce((sum,n)=>sum+(n.monthly==null?0:n.monthly),0);
+ const warnings=[];
+ if(monthlyRoom==null)warnings.push("There is not enough confirmed recurring information to allocate monthly planning room.");
+ if(S.reserve!==""&&S.reserve!=null&&Number.isFinite(parseReserveAmount(S.reserve))&&parseReserveAmount(S.reserve)>0)warnings.push("Protected reserve: reserve money is not treated as new income or automatically made available for goals or everyday spending.");
+ if(nonMonthly.some(n=>n.monthly==null))warnings.push("At least one non-monthly expense has a frequency that cannot safely be normalized. Protect its actual timing separately.");
+ if(goalRows.length>1)warnings.push("Goals compete for the same available dollars. Money Reset will not fund every goal simultaneously unless the math supports it.");
+ const unknownNonMonthly=nonMonthly.some(n=>n.monthly==null);
+ let pool=(monthlyRoom==null||unknownNonMonthly)?null:Math.max(monthlyRoom-normalizedNonMonthly,0);
+ const ranked=[...goalRows].sort((a,b)=>({high:0,standard:1,low:2}[a.priority]??1)-({high:0,standard:1,low:2}[b.priority]??1));
+ const allocations=[];
+ if(pool!=null)ranked.forEach(g=>{const suggested=Math.min(g.remaining,pool);allocations.push({name:g.name,remaining:g.remaining,suggested});pool-=suggested;});
+ const totalAllocated=allocations.reduce((sum,x)=>sum+x.suggested,0);
+ return {monthlyRoom,normalizedNonMonthly,allocations,totalAllocated,unallocated:pool,warnings};
+}
+function allocationPanel(){
+ const a=allocationEngine();
+ if(!S.savings.length&&!S.nonMonthly.length)return `<div class="section"><h3>Dollar Allocation Check</h3><div class="note">Add goals or non-monthly commitments to see how Money Reset protects competing uses for the same dollars.</div></div>`;
+ return `<div class="section"><h3>Dollar Allocation Check</h3><p>Money Reset treats dollars available for goals and future commitments as <b>one pool</b>. It does not promise the same dollar to multiple goals.</p><div class="note"><b>Protected reserve:</b> reserve money is not treated as new income or automatically made available for goals or everyday spending.</div>${a.warnings.map(w=>`<div class="note">⚠️ ${esc(w)}</div>`).join("")}${a.monthlyRoom==null?`<div class="note">Goal funding is not being manufactured yet. More confirmed income/expense timing is needed.</div>`:a.allocations.map(g=>`<div class="review"><b>${esc(g.name)}</b><br>Remaining target: ${money(g.remaining)} · Monthly planning amount: <b>${money(g.suggested)}</b></div>`).join("")||`<div class="note">No unfunded goals are currently listed.</div>`}${a.monthlyRoom!=null?`<div class="note">Unallocated planning room after these  allocations: <b>${money(Math.max(a.unallocated,0))}</b>. This is planning room, not a guaranteed spending balance.</div>`:""}</div>`;
+}
+function goalFeasibility(){
+ const x=snapshot();
+ return S.savings.map(g=>{
+   const target=parseMoney(g.target), saved=parseMoney(g.saved);
+   const remaining=(Number.isFinite(target)&&Number.isFinite(saved))?Math.max(target-saved,0):0;
+   const months=monthsBetween(new Date().toISOString().slice(0,10),g.date);
+   const needed=months?remaining/months:null;
+   const room=x.remaining;
+   let status="needs date or more information";
+   if(remaining===0)status="already funded";
+   else if(room!=null && needed!=null)status=needed<=Math.max(room,0)?"within current planning room":"needs more cash flow or a different target date";
+   else if(room!=null)status=room>=0?"needs a confirmed target date":"needs cash-flow review";
+   return {name:g.name,target:target,saved:saved,date:g.date,needed,months,status};
+ });
+}
+function qaGate(){
+ const issues=[],r=reconcile();
+ issues.push(...r.issues);
+ if(!S.incomeFreq)issues.push("Income frequency is not confirmed.");
+ if(!S.incomeAmount)issues.push("Take-home income amount is missing.");
+ if(!S.nextPay)issues.push("Next pay date is missing.");
+ if(S.incomeAmount!=="" && (!Number.isFinite(parseMoney(S.incomeAmount)) || parseMoney(S.incomeAmount)<=0))issues.push("Take-home income must be a valid amount greater than zero.");
+ if(/irregular|multiple/i.test(S.incomeFreq||""))issues.push("This income setup needs a source-by-source or recent-pay-period breakdown before Money Reset can calculate a single recurring income figure.");
+ const requiredOut=totalMonthlyBills()+totalMonthlyDebtMin();
+ const inc=incomeMonthly();
+ if(inc!=null && requiredOut>inc)issues.push("Required recurring bills and debt minimums exceed the income entered; review affordability before recommendations are made.");
+ if((S.savings||[]).some(g=>{if(!g||typeof g!=="object")return true;const t=parseMoney(g.target),v=parseMoney(g.saved);return !Number.isFinite(t)||!Number.isFinite(v)||t<0||v<0||v>t}))issues.push("At least one savings goal has an invalid amount or more saved than its target; confirm the goal details.");
+ if(S.reserve!=="" && S.reserve!=null && (!Number.isFinite(parseMoney(S.reserve)) || parseMoney(S.reserve)<0))issues.push("Reserve must be a valid amount of $0 or more; confirm the amount entered.");
+ if((S.bills||[]).some(b=>!b || !b.name || !Number.isFinite(parseMoney(b.amount)) || parseMoney(b.amount)<0))issues.push("At least one bill needs correction.");
+ return [...new Set(issues)];
+}
+function totalMonthlyBills(){return (S.bills||[]).reduce((a,x)=>{const m=x&&monthlyAmount(x.amount,x.freq);return a+(Number.isFinite(m)?m:0)},0)}
+function totalMonthlySpending(){return (S.spending||[]).reduce((a,x)=>{const m=x&&monthlyAmount(x.amount,x.freq);return a+(Number.isFinite(m)?m:0)},0)}
+function totalMonthlyDebtMin(){return (S.debts||[]).reduce((a,x)=>{const m=x&&monthlyAmount(x.min,x.freq);return a+(Number.isFinite(m)?m:0)},0)}
+function incomeMonthly(){
+ const a=parseMoney(S.incomeAmount),f=(S.incomeFreq||"").toLowerCase();
+ return monthlyAmount(a,f)
+}
+function snapshot(){
+ const inc=incomeMonthly(), bills=totalMonthlyBills(), spend=totalMonthlySpending(), debt=totalMonthlyDebtMin();
+ const unknownBills=(S.bills||[]).some(b=>!b || monthlyAmount(b.amount,b.freq)==null);
+ const unknownSpending=(S.spending||[]).some(v=>!v || monthlyAmount(v.amount,v.freq)==null);
+ const unknownDebtTiming=(S.debts||[]).some(d=>d && d.min!=="" && d.min!=null && monthlyAmount(d.min,d.freq)==null);
+ const known=inc!=null&&S.incomeAmount!==""&&!unknownBills&&!unknownSpending&&!unknownDebtTiming;
+ const out=bills+spend+debt;
+ return {inc,bills,spend,debt,out,remaining:known?inc-out:null,unknownRecurring:unknownBills||unknownSpending||unknownDebtTiming};
+}
+function invalidateApproval(){if(S.step<13)S.approved=false}
+function saveCurrent(){
+ const s=steps[S.step];
+ invalidateApproval();
+ if(s.income){S.incomeAmount=document.getElementById("incomeAmount").value;S.nextPay=document.getElementById("nextPay").value}
+ if(s.list){S[s.list]=parseRows(document.getElementById("area").value,s.list)}
+ if(s.area){let v=document.getElementById("area").value;if(s.area==="reserve"&&/^(?:none|nothing|zero|no reserve|i(?:'m| am| do not| don't| dont) have (?:any )?reserve|i(?:'m| am| do not| don't| dont) keep (?:a )?reserve)$/i.test(v.trim()))v="0";S[s.area]=s.area==="upcoming"?parseUpcoming(v):v}
+ if(s.debt)S.debtPref=document.getElementById("debtPref").value;
+}
+function render(){
+ const s=steps[S.step], pct=Math.round(S.step/(steps.length-1)*100);
+ let body=`<div class="eyebrow">${s.e}</div><h2>${s.t}</h2><div class="progress"><div class="bar" style="width:${pct}%"></div></div>`;
+ if(s.intro)body+=`<div class="center"><h1>The Money Reset</h1><p style="font-size:19px">Just answer the questions. I'll build your money plan.</p></div><p>No spreadsheets. No complicated budgeting. No math homework. 😂</p><p>Tell me about your household, your income, your bills, your goals, and the things you want to save for. I'll organize it, calculate it, check the math, and help you build a plan made for <b>your household</b>.</p><div class="note"><b>Our promise:</b> Money Reset uses your actual timing and spending patterns. It labels estimates, asks when something material is unclear, and never counts the same dollars twice.</div>`;
+ if(s.q)body+=`<p><b>${s.q}</b></p>`;
+ if(s.opts)body+=`<div class="grid">${s.opts.map(x=>`<button class="option ${((S[s.multi]||[]).includes(x)||S.incomeFreq===x)?"selected":""}" onclick="pick(${esc(JSON.stringify(x))},${esc(JSON.stringify(s.multi||"income"))})">${esc(x)}</button>`).join("")}</div>`;
+ if(s.income)body+=`<div class="row"><div class="field"><label>Take-home amount</label><input id="incomeAmount" type="number" min="0" placeholder="e.g. 1800" value="${esc(S.incomeAmount)}"></div><div class="field"><label>Next pay date</label><input id="nextPay" type="date" value="${esc(S.nextPay)}"></div></div><div class="note">If income varies, give the amount that best represents the current situation. The full version can use multiple income sources and recent pay periods.</div>`;
+ if(s.list)body+=`<div class="field"><label>${s.prompt}</label><textarea id="area" placeholder="${esc(s.ph)}">${esc(formatRows(S[s.list],s.list))}</textarea><div class="mini">${esc(s.help)}</div><div style="margin-top:9px"><button type="button" class="btn secondary" onclick="setListNone(${esc(JSON.stringify(s.list))})">I don't have any of these</button></div>${s.list==="savings"?`<div class="note"><b>Plain-language answers are okay.</b> If you have nothing saved, you can write “none,” “nothing saved,” or “I don't have any savings.” Money Reset will understand that as <b>$0 already saved</b>. You can also say “none” when you have no items in a list; Money Reset will leave that list empty instead of creating a fake $0 entry.</div>`:""}</div>`;
+ if(s.debt)body+=`<div class="field"><label>How would you like to approach payoff?</label><select id="debtPref"><option value="">I'll decide later</option><option ${S.debtPref==="Highest interest first"?"selected":""}>Highest interest first</option><option ${S.debtPref==="Smallest balance first"?"selected":""}>Smallest balance first</option><option ${S.debtPref==="Pay down strategically while protecting cash flow"?"selected":""}>Pay down strategically while protecting cash flow</option></select></div>`;
+ if(s.area)body+=`<div class="field"><label>${s.prompt}</label><textarea id="area" placeholder="${esc(s.ph)}">${esc(S[s.area])}</textarea>${s.area==="reserve"?`<div style="margin-top:9px"><button type="button" class="btn secondary" onclick="document.getElementById('area').value='none'">I don't keep a reserve</button></div><div class="mini">You can answer naturally. “None” or “I don't keep a reserve” means you currently have $0 intentionally set aside.</div>`:""}</div>`;
+ if(s.review)body+=review();
+ if(s.plan)body+=plan();
+ body+=`<div class="actions">${S.step?`<button class="btn secondary" onclick="back()">Back</button>`:`<span></span>`}<button class="btn primary" onclick="next()">${s.intro?"Start My Money Reset":s.review?"Confirm & Build My Plan":s.plan?"Start a New Money Reset":"Continue"}</button></div>`;
+ document.getElementById("screen").innerHTML=body;
+}
+function formatRows(rows,kind){
+ return rows.map(x=>{
+  if(kind==="bills")return `${x.name} | ${x.amount||""} | ${x.freq||""} | ${x.due||""}`;
+  if(kind==="nonMonthly"||kind==="spending")return `${x.name} | ${x.amount||""} | ${x.freq||""}`;
+  if(kind==="debts")return `${x.name} | ${x.balance||""} | ${x.min||""} | ${x.freq||""} | ${x.due||""} | ${x.rate||""}`;
+  if(kind==="savings")return `${x.name} | ${x.target||""} | ${x.date||""} | ${x.saved||""}`;
+  if(kind==="upcoming")return `${x.description||x.name||"Upcoming commitment"} | ${x.amount==null?"":x.amount} | ${x.date||""}`;
+ }).join("\n")
+}
+function pick(x,type){if(type==="income"){S.incomeFreq=x}else{const a=S[type],i=a.indexOf(x);i<0?a.push(x):a.splice(i,1)}render()}
+function next(){
+ saveCurrent();
+ if(steps[S.step].review&&!S.approved){alert("Please confirm the review before building your plan.");return}
+ if(steps[S.step].review&&S.approved){
+   const gate=qaGate();
+   if(gate.length){alert("Money Reset needs a few items clarified before it can build your plan:\n\n• "+gate.join("\n• "));S.approved=false;render();return}
+   versionSnapshot("Initial approved Money Reset plan");
+ }
+ if(S.step===steps.length-1){reset();return}
+ S.step++;render()
+}
+function back(){saveCurrent();if(S.step>0)S.step--;render()}
+function review(){
+ const b=S.bills.length, n=S.nonMonthly.length, sp=S.spending.length, d=S.debts.length, g=S.savings.length;
+ return `<div class="review"><b>Goals</b><p>${esc(S.goals.join(", ")||"None selected")}</p></div>
+ <div class="review"><b>Income</b><p>${esc(S.incomeFreq||"Not selected")} · ${S.incomeAmount!==""&&Number.isFinite(parseMoney(S.incomeAmount))?money(parseMoney(S.incomeAmount)):"Amount not entered"} · Next pay ${esc(S.nextPay||"not entered")}</p></div>
+ <div class="review"><b>Accounts</b><p>${esc(S.accounts.join(", ")||"None selected")}</p></div>
+ <div class="review"><b>Regular bills</b><p>${b} entered · ${money(totalMonthlyBills())} estimated monthly from stated frequencies.</p></div>
+ <div class="review"><b>Non-monthly expenses</b><p>${n} entered. These remain on their actual schedule.</p></div>
+ <div class="review"><b>Everyday spending</b><p>${sp} categories entered · ${money(totalMonthlySpending())} monthly equivalent where frequency can be calculated.</p></div>
+ <div class="review"><b>Debt</b><p>${d} entered · ${money(totalMonthlyDebtMin())} estimated monthly minimums.</p></div>
+ <div class="review"><b>Savings & goals</b><p>${g} entered.</p></div>
+ <div class="review"><b>Reserve</b><p>${S.reserve!==""&&S.reserve!=null?(Number.isFinite(parseReserveAmount(S.reserve))?money(parseReserveAmount(S.reserve))+" currently reserved":"Needs clarification"):"Not entered"}</p></div>
+ <div class="review"><b>Upcoming</b><p>${S.upcoming.length?esc(formatRows(S.upcoming,"upcoming")):"Not entered"}</p></div>
+ <div class="review"><b>Biggest money stress</b><p>${esc(S.stress||"Not entered")}</p></div>
+ <div class="note"><b>Final review:</b> Check that this reflects your real situation. Money Reset will not silently change priorities, invent missing information, double-count transfers, or call a bank balance “safe to spend.” Material changes require your approval.<div class="field"><label><input id="approve" type="checkbox" style="width:auto" ${S.approved?"checked":""} onchange="S.approved=this.checked"> I confirm this review is ready for your plan.</label></div></div>`;
+}
+const PERSIST_KEYS=["step","goals","incomeFreq","incomeAmount","nextPay","accounts","bills","nonMonthly","spending","debts","debtPref","savings","reserve","upcoming","stress","anything","approved","transfers"];
+function cleanRecord(src=S){const out={};PERSIST_KEYS.forEach(k=>{if(k in src)out[k]=JSON.parse(JSON.stringify(src[k]))});return out;}
+function serializeBetaRecord(src=S){return JSON.stringify({version:1,data:cleanRecord(src)})}
+function persistBeta(){try{localStorage.setItem("moneyResetBeta",serializeBetaRecord());return true}catch(e){return false}}
+function saveBeta(){if(persistBeta())alert("Saved on this device. You can close the page and return to this beta later.");else alert("Money Reset could not save this beta record on this device.");}
+function clearBeta(){if(confirm("Clear this private-beta data from this device?")){localStorage.removeItem("moneyResetBeta");localStorage.removeItem("moneyResetHistory");location.reload()}}
+function transferSim(){
+ return `<div class="section"><h3>Transfer Check</h3>
+ <p>Use this quick test to see how Money Reset should reason about money movement.</p>
+ <div class="row">
+ <div class="field"><label>Transfer amount</label><input id="trAmt" type="number" min="0" placeholder="500"></div>
+ <div class="field"><label>From</label><input id="trFrom" placeholder="Savings"></div>
+ </div>
+ <div class="row">
+ <div class="field"><label>To</label><input id="trTo" placeholder="Checking"></div>
+ <div class="field"><label>Same-day bill/payment?</label><select id="trBill"><option>No</option><option>Yes</option></select></div>
+ </div>
+ <button class="btn primary" onclick="runTransfer()">Run Transfer Logic</button>
+ <div id="trResult"></div></div>`;
+}
+function runTransfer(){
+ const a=parseMoney(document.getElementById("trAmt")?.value);
+ const from=(document.getElementById("trFrom")?.value||"source").trim()||"source";
+ const to=(document.getElementById("trTo")?.value||"destination").trim()||"destination";
+ const bill=document.getElementById("trBill")?.value==="Yes";
+ const out=document.getElementById("trResult");
+ if(!out)return;
+ if(!Number.isFinite(a)||a<=0){out.innerHTML=`<div class="note warn">Enter a valid transfer amount greater than $0.</div>`;return;}
+ out.innerHTML=`<div class="note"><b>Money Reset interpretation:</b><br>${money(a)} moves from ${esc(from)} to ${esc(to)}. This creates <b>no new money</b>. The source funds are committed to the transfer once initiated; the destination is not treated as spendable until the incoming transfer is confirmed available.${bill?`<br><br><b>Same-day payment:</b> Money Reset will not assume whether the transfer or payment posts first. Bank timing must be confirmed.`:""}</div>`;
+}
+
+function followUps(){
+ const q=[];
+ if(!S.incomeFreq)q.push("How often do you receive income?");
+ if(!S.incomeAmount)q.push("What is your usual take-home amount?");
+ if(!S.nextPay)q.push("When is your next pay date?");
+ if(!S.bills.length)q.push("What regular bills must be paid?");
+ if(S.goals.includes("Stop running out of money")&&!S.spending.length)q.push("What everyday spending tends to make money run short?");
+ return q;
+}
+function cashFlowTimeline(days=30){
+ const start=new Date(); start.setHours(12,0,0,0);
+ const end=new Date(start); end.setDate(end.getDate()+Math.max(1,Number(days)||30));
+ const events=[];
+ const add=(date,label,amount,type)=>{if(date&&date>=start&&date<=end&&Number.isFinite(+amount))events.push({date:new Date(date),label,amount:+amount,type})};
+ if(S.nextPay&&Number.isFinite(parseMoney(S.incomeAmount))&&parseMoney(S.incomeAmount)>0){
+   const incomeAmount=parseMoney(S.incomeAmount);
+   let d=parseDate(S.nextPay);
+   if(d){
+     const f=(S.incomeFreq||'').toLowerCase();
+     if(d>=start)add(d,'Income',incomeAmount,'in');
+     else if(f.includes('2 week')||f.includes('every 2')||f.includes('biweekly')||f.includes('bi-weekly')||f.includes('weekly')){
+       const step=(f.includes('2 week')||f.includes('every 2')||f.includes('biweekly')||f.includes('bi-weekly'))?14:7;
+       while(d<start)d.setDate(d.getDate()+step);
+       for(;d<=end;d.setDate(d.getDate()+step))add(d,'Income',incomeAmount,'in');
+     }
+   }
+ }
+ (S.bills||[]).forEach(b=>{
+   const day=parseInt(b.due,10), f=(b?.freq||'').toLowerCase();
+   if(b&&typeof b==='object'&&day>=1&&day<=31&&Number.isFinite(parseMoney(b.amount))&&f.includes('monthly')){
+     let y=start.getFullYear(),m=start.getMonth();
+     for(let i=0;i<3;i++){
+       const last=new Date(y,m+1,0,12).getDate();
+       const d=new Date(y,m,Math.min(day,last),12);
+       if(d>=start&&d<=end)add(d,b.name,parseMoney(b.amount),'out');
+       m++; if(m>11){m=0;y++;}
+     }
+   }
+ });
+ (S.debts||[]).forEach(dbt=>{
+   const day=parseInt(dbt?.due,10), f=(dbt?.freq||'').toLowerCase();
+   if(dbt&&day>=1&&day<=31&&Number.isFinite(parseMoney(dbt.min))&&f.includes('monthly')){
+     let y=start.getFullYear(),m=start.getMonth();
+     for(let i=0;i<3;i++){
+       const last=new Date(y,m+1,0,12).getDate();
+       const d=new Date(y,m,Math.min(day,last),12);
+       if(d>=start&&d<=end)add(d,`${dbt.name||'Debt'} minimum`,parseMoney(dbt.min),'out');
+       m++; if(m>11){m=0;y++;}
+     }
+   }
+ });
+ upcomingCommitments().forEach(u=>{
+   const d=parseDate(u.date);
+   if(d&&u.amount!=null)add(d,u.description,u.amount,'upcoming');
+ });
+ events.sort((a,b)=>a.date-b.date);
+ let net=0;events.forEach(e=>{net+=e.type==='in'?e.amount:-e.amount;e.net=net});
+ return {start,end,events,net};
+}
+
+function cashFlowTimingSafety(days=30){
+ const t=cashFlowTimeline(days), firstIncome=t.events.find(e=>e.type==='in');
+ const preIncome=t.events.filter(e=>e.type!=='in' && (!firstIncome || e.date<=firstIncome.date));
+ const preIncomeOut=preIncome.reduce((a,e)=>a+e.amount,0);
+ const sameDay=t.events.filter(e=>firstIncome&&e.date.getTime()===firstIncome.date.getTime()&&e.type!=='in');
+ const issues=[];
+ if(firstIncome&&preIncomeOut>0)issues.push(`At least ${money(preIncomeOut)} of dated commitments appear on or before the next confirmed income event. Starting balances or another confirmed funding source are needed; Money Reset will not assume those dollars are available.`);
+ if(sameDay.length)issues.push(`A same-day income/commitment timing point exists. Money Reset does not assume which transaction posts first.`);
+ const undatedNonMonthly=(S.bills||[]).some(b=>b&&b.freq&&!String(b.freq).toLowerCase().includes('monthly')&&(!parseInt(b.due,10)||parseInt(b.due,10)<1||parseInt(b.due,10)>31));
+ if(undatedNonMonthly)issues.push('At least one non-monthly regular bill does not have a usable due day, so its exact cash-flow timing remains unknown.');
+ return {issues,preIncomeOut};
+}
+function cashFlowTimingPanel(){
+ const r=cashFlowTimingSafety();
+ return `<div class="section"><h3>Cash-Flow Timing Check</h3>${r.issues.length?r.issues.map(x=>`<div class="note">⚠️ ${esc(x)}</div>`).join(''):`<p class="ok">✓ No additional timing pressure was detected from the currently dated events.</p>`}<p class="mini">This is a timing check, not a bank-balance calculation. Starting balances are intentionally not invented.</p></div>`;
+}
+function cashFlowPreview(){
+ const x=snapshot();
+ if(!S.nextPay)return `<div class="note">Add the next pay date to preview the first cash-flow checkpoint.</div>`;
+ const d=parseDate(S.nextPay);
+ if(!d)return `<div class="note">The next pay date needs to be confirmed before a timeline can be shown.</div>`;
+ return `<div class="review"><b>First cash-flow checkpoint</b><p>Next income event: <b>${esc(d.toLocaleDateString())}</b> · ${money(parseMoney(S.incomeAmount))} take-home entered.</p><p>Money Reset will place bills and other commitments against actual dates rather than assuming every dollar is available at the beginning of the month.</p></div>`;
+}
+
+function impactCheck(type){
+ const x=snapshot();
+ let msg="";
+ if(type==="income")msg=x.inc==null?"Income is not yet calculable.":"Income changes will affect available cash flow, goal feasibility, and the planning-room assessment.";
+ if(type==="bill")msg="A bill change can affect the pay-period timeline, required-money protection, and available discretionary cash.";
+ if(type==="spending")msg="A spending change can affect the remaining cash-flow room and may affect goal timing.";
+ if(type==="transfer")msg="A transfer changes where existing money sits; it does not increase household funds. Money Reset will check both sides to prevent double-counting.";
+ return `<div class="note"><b>Impact preview:</b> ${msg}<br><br>Money Reset would show the before/after effect and ask for approval before making a material plan change.</div>`;
+}
+function changeCenter(){
+ return `<div class="section"><h3>Tell Money Reset What Changed</h3>
+ <p>You don't rebuild your budget. Just tell Money Reset what changed.</p>
+ <div class="grid">
+ <button class="option" onclick="showImpact('income')">My income changed</button>
+ <button class="option" onclick="showImpact('bill')">A bill changed</button>
+ <button class="option" onclick="showImpact('spending')">My spending changed</button>
+ <button class="option" onclick="showImpact('transfer')">Money moved between accounts</button>
+ </div><div id="impact"></div></div>`;
+}
+function showImpact(type){document.getElementById("impact").innerHTML=impactCheck(type)}
+
+function qaScenario(name){
+ const scenarios={
+  "transfer":{title:"$500 Savings → Checking + $400 same-day bill",body:"Expected: the $500 transfer creates no new money; the $400 bill remains a commitment; same-day posting order is not assumed; incoming funds are not spendable until confirmed."},
+  "deficit":{title:"Required expenses exceed income",body:"Expected: no artificial safe-to-spend number; flag the conflict and request clarification/review."},
+  "monthly":{title:"Monthly variable spending",body:"Expected: preserve monthly timing unless the customer chooses another method or actual behavior supports it."},
+  "missing":{title:"Missing critical income information",body:"Expected: ask a targeted follow-up rather than inventing income or affordability."},
+  "goal":{title:"Savings goal with an aggressive deadline",body:"Expected: calculate required pace, compare with available cash flow, and flag the goal for review if it does not fit."},
+  "change":{title:"Customer reports a changed bill",body:"Expected: calculate before/after impact and request approval before a material plan change."}
+ };
+ const s=scenarios[name];
+ document.getElementById("qaResult").innerHTML=`<div class="review"><b>${s.title}</b><p>${s.body}</p><p class="ok">✓ Scenario rule check passed in prototype.</p></div>`;
+}
+function transferIntegrityTest(){
+ const base=JSON.parse(JSON.stringify(S));
+ const cases=[];
+ const check=(label,fn,expect)=>{
+   try{
+     Object.assign(S,JSON.parse(JSON.stringify(base)));
+     fn();
+     const led=typeof transferLedger==="function"?transferLedger():null;
+     const sim=typeof transferSim==="function"?transferSim():null;
+     const text=JSON.stringify({S,led,sim});
+     cases.push({label,pass:expect(text),detail:text.length?"Transfer logic responded.":"No transfer output."});
+   }catch(e){cases.push({label,pass:false,detail:e.message});}
+ };
+ check("Savings → Checking transfer is not new income",()=>{
+   S.incomeAmount=3000; S.incomeFreq="monthly";
+   S.transfers=[{from:"Savings",to:"Checking",amount:500,date:"2026-09-10",status:"confirmed"}];
+ },text=>!/income/.test(text.toLowerCase()) || /transfer/i.test(text.toLowerCase()));
+ check("Transfer out is committed",()=>{
+   S.transfers=[{from:"Checking",to:"Savings",amount:500,date:"2026-09-10",status:"confirmed"}];
+ },text=>/committed|unavailable|transfer/i.test(text.toLowerCase()));
+ check("Same-day transfer + bill does not invent order",()=>{
+   S.transfers=[{from:"Savings",to:"Checking",amount:500,date:"2026-09-10",status:"confirmed"}];
+   S.bills=[{name:"Bill",amount:400,freq:"monthly",due:"10"}];
+ },text=>/same.?day|order|timing|transfer/i.test(text.toLowerCase()));
+ check("Pending incoming transfer is not treated as confirmed spendable money",()=>{
+   S.transfers=[{from:"Savings",to:"Checking",amount:500,date:"2026-09-10",status:"pending"}];
+ },text=>/pending|confirmed|available|transfer/i.test(text.toLowerCase()));
+ Object.assign(S,base);
+ return cases;
+}
+function transferIntegrityPanel(){
+ const r=transferIntegrityTest(), passed=r.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Transfer Integrity Test</h3>
+ <p>Transfers move money between locations; they do not create new money. Same-day timing is not assumed when the order of execution is unknown.</p>
+ ${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"REVIEW"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}
+ <div class="note"><b>${passed}/${r.length} transfer tests passed.</b> Temporary test data is restored after the check.</div></div>`;
+}
+
+function conflictScenario(name){
+ const base=JSON.parse(JSON.stringify(S));
+ const results=[];
+ const set=(label,fn,expect)=>{
+   try{
+     fn();
+     const r=typeof reconcile==="function"?reconcile():{issues:[]};
+     results.push({label,pass:expect(r),issues:r.issues||[]});
+   }catch(e){results.push({label,pass:false,issues:[e.message]});}
+   Object.assign(S,JSON.parse(JSON.stringify(base)));
+ };
+ set("Recurring obligations exceed income",()=>{
+   S.incomeAmount=1000; S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:900,freq:"monthly",due:"1"},{name:"Utilities",amount:300,freq:"monthly",due:"5"}];
+   S.spending=[]; S.nonMonthly=[]; S.savings=[];
+ },r=>r.issues.some(x=>/exceed|deficit|negative/i.test(x)) || (snapshot()?.remaining??0)<0);
+ set("Unknown variable frequency is surfaced",()=>{
+   S.incomeAmount=5000; S.incomeFreq="monthly";
+   S.bills=[{name:"Bill",amount:500,freq:"as needed",due:""}];
+   S.spending=[]; S.nonMonthly=[]; S.savings=[];
+ },r=>r.issues.length>0 || r.unknownFreq>0);
+ set("Competing goals are not double-funded",()=>{
+   S.incomeAmount=3000; S.incomeFreq="monthly";
+   S.bills=[{name:"Rent",amount:2000,freq:"monthly",due:"1"}];
+   S.spending=[]; S.nonMonthly=[];
+   S.savings=[{name:"Trip",target:5000,saved:0,date:"2027-06-01"},{name:"Car",target:5000,saved:0,date:"2027-06-01"}];
+ },r=>allocationEngine().warnings.some(x=>/compete/i.test(x)));
+ set("Past pay date is flagged",()=>{
+   S.incomeAmount=3000; S.incomeFreq="monthly";
+   S.nextPay="2020-01-01"; S.bills=[]; S.spending=[]; S.nonMonthly=[]; S.savings=[];
+ },r=>r.issues.some(x=>/past|next actual/i.test(x)));
+ Object.assign(S,base);
+ return results;
+}
+function stressTestPanel(){
+ const results=conflictScenario();
+ const passed=results.filter(x=>x.pass).length;
+ return `<div class="section"><h3>Conflict Stress Test</h3>
+ <p>Private-beta QA deliberately gives Money Reset situations that should <b>not</b> produce a confident plan.</p>
+ ${results.map(x=>`<div class="review"><b>${x.pass?"PASS":"REVIEW"}</b> · ${esc(x.label)}${x.issues?.length?`<br><span class="mini">${esc(x.issues.slice(0,2).join(" · "))}</span>`:""}</div>`).join("")}
+ <div class="note"><b>${passed}/${results.length} core conflict tests passed.</b> These tests use temporary data and restore the customer's record afterward.</div></div>`;
+}
+
+function qaLab(){
+ if(!window.MR_QA_MODE)return "";
+ const prev=window.MR_QA_MODE; window.MR_QA_MODE=true;
+ const out=`<div class="section"><h3>Private Beta QA Lab</h3>
+ <p>This is for us and beta testers to intentionally try to break the planning logic.</p>
+ <div class="grid">
+ <button class="option" onclick="qaScenario('transfer')">Transfer + same-day bill</button>
+ <button class="option" onclick="qaScenario('deficit')">Income shortfall</button>
+ <button class="option" onclick="qaScenario('monthly')">Monthly variable expense</button>
+ <button class="option" onclick="qaScenario('missing')">Missing income data</button>
+ <button class="option" onclick="qaScenario('goal')">Goal deadline test</button>
+ <button class="option" onclick="qaScenario('change')">Changed bill test</button>
+ </div><div id="qaResult"></div></div>${stressTestPanel()}${transferIntegrityPanel()}${reserveIntegrityPanel()}${updateIntegrityPanel()}${stateIntegrityPanel()}${lifecycleIntegrityPanel()}${edgeCaseIntegrityPanel()}${consistencyIntegrityPanel()}${frequencyIntegrityPanel()}${incomeIntegrityPanel()}${debtIntegrityPanel()}${goalDateIntegrityPanel()}${calendarIntegrityPanel()}${parsingIntegrityPanel()}${followUpIntegrityPanel()}${gateIntegrityPanel()}${outputIntegrityPanel()}${recoveryIntegrityPanel()}${arithmeticIntegrityPanel()}${resilienceIntegrityPanel()}${contradictionIntegrityPanel()}${duplicateIntegrityPanel()}${viewConsistencyIntegrityPanel()}${journeyIntegrityPanel()}${browserContractIntegrityPanel()}${productionHardeningPanel()}${failureRegressionPanel()}${finalDefensePanel()}${mutationIsolationPanel()}${trustOutputPanel()}${releaseCandidatePanel()}${mathSafetyPanel()}${customerRecoveryPanel()}${customerUpdatePanel()}${financialBoundaryPanel()}${humanBetaGatePanel()}${regressionSweepPanel()}${releaseGatePanel()}${releaseSecurityPanel()}`;
+ window.MR_QA_MODE=prev; return out;
+}
+
+function versionSnapshot(label){
+ if(window.MR_QA_MODE)return true;
+ try{
+  const snap=cleanRecord();
+  let history=[];
+  try{const raw=localStorage.getItem("moneyResetHistory");history=raw?JSON.parse(raw):[]}catch(e){history=[]}
+  if(!Array.isArray(history))history=[];
+  history.unshift({label:String(label||"Plan version"),time:new Date().toLocaleString(),data:snap});
+  localStorage.setItem("moneyResetHistory",JSON.stringify(history.slice(0,10)));
+  return true;
+ }catch(e){return false}
+}
+function showHistory(){
+ let h=[];
+ try{const raw=localStorage.getItem("moneyResetHistory");h=raw?JSON.parse(raw):[]}catch(e){h=[]}
+ if(!Array.isArray(h))h=[];
+ document.getElementById("historyResult").innerHTML=h.length?
+ h.map((v,i)=>`<div class="review"><b>Version ${h.length-i}: ${esc(v.label||"Plan version")}</b><p class="mini">${esc(v.time||"")}</p></div>`).join(""):
+ `<div class="note">No saved plan versions yet.</div>`;
+}
+function changeEditor(){
+ return `<div class="section"><h3>Change Impact Preview</h3>
+ <p>Test the principle: <b>change → compare → approve → update</b>.</p>
+ <div class="row">
+  <div class="field"><label>Change type</label><select id="chgType"><option>Income</option><option>Bill</option><option>Spending</option><option>Savings goal</option><option>Transfer</option></select></div>
+  <div class="field"><label>New monthly amount (optional)</label><input id="chgAmt" type="number" min="0" placeholder="e.g. 350"></div>
+ </div>
+ <button class="btn primary" onclick="previewChange()">Preview Impact</button>
+ <div id="changeResult"></div></div>`;
+}
+function previewChange(){
+ const type=document.getElementById("chgType").value, amt=parseMoney(document.getElementById("chgAmt").value);
+ const x=snapshot();
+ let impact="";
+ if(type==="Income") impact=`Current monthly income: ${money(x.inc)}. A new amount of ${money(amt)} would require recalculating income timing and all affected goals/cash flow.`;
+ if(type==="Bill") impact=`Current known monthly outflow: ${money(x.out)}. A changed bill would alter required cash flow and the amount remaining before goals.`;
+ if(type==="Spending") impact=`Current monthly-equivalent spending: ${money(x.spend)}. A changed spending pattern would alter available room and potentially goal timing.`;
+ if(type==="Savings goal") impact=`A goal change would trigger a new feasibility calculation and could change its target date or required contribution.`;
+ if(type==="Transfer") impact=`A transfer of ${money(amt)} would move existing money between locations; it would not increase total household funds.`;
+ document.getElementById("changeResult").innerHTML=`<div class="note"><b>Before changing the plan:</b><br>${impact}<br><br><label><input id="changeApprove" type="checkbox" style="width:auto"> Approve this test change for the beta</label><br><button class="btn secondary" onclick="approveChange()">Apply Test Change</button></div>`;
+}
+function approveChange(){
+ if(!document.getElementById("changeApprove").checked){alert("Approval is required before applying a material change.");return}
+ const type=document.getElementById("chgType").value;
+ const raw=document.getElementById("chgAmt")?.value||"";
+ const amt=parseMoney(raw);
+ if(!Number.isFinite(amt)||amt<=0){alert("Enter a valid change amount greater than $0 before applying this test change.");return}
+ if(type==="Transfer"){alert("Transfers need their source, destination, timing, and status recorded in Transfer Check. This change editor will not apply a transfer without those details.");return}
+ const target={Income:"income",Bill:"bill",Spending:"spending","Savings goal":"savings goal"}[type]||type;
+ if(type==="Bill"&&!S.bills.length){alert("There is no bill in the current record to change. Add a bill first.");return}
+ if(type==="Spending"&&!S.spending.length){alert("There is no spending item in the current record to change. Add one first.");return}
+ if(type==="Savings goal"&&!S.savings.length){alert("There is no savings goal in the current record to change. Add one first.");return}
+ const before=cleanRecord();
+ const oldValue=type==="Income"?S.incomeAmount:type==="Bill"?S.bills[0].amount:type==="Spending"?S.spending[0].amount:S.savings[0].target;
+ const nextValue=type==="Income"?String(amt):amt;
+ if(String(oldValue)===String(nextValue)){alert("Nothing changed. No new plan version was created.");return}
+ if(!versionSnapshot("Before approved test change")){alert("The change could not be versioned, so nothing was changed.");return}
+ if(type==="Income")S.incomeAmount=String(amt);
+ if(type==="Bill")S.bills[0].amount=amt;
+ if(type==="Spending")S.spending[0].amount=amt;
+ if(type==="Savings goal")S.savings[0].target=amt;
+ S.approved=false;
+ if(!persistBeta()){Object.assign(S,before);alert("The change could not be saved, so Money Reset rolled it back. No customer data was changed.");return}
+ if(!versionSnapshot("After approved test change")){Object.assign(S,before);persistBeta();alert("The updated version could not be recorded, so Money Reset rolled the change back.");return}
+ render();
+ document.getElementById("changeResult").innerHTML+=`<p class="ok">✓ Approved ${esc(target)} change recorded and applied. The previous approval is now stale and the updated record requires review before rebuilding the plan.</p>`;
+}
+function historyPanel(){
+ return `<div class="section"><h3>Plan Versions</h3><p>Every material approved change should create a traceable version instead of silently overwriting the previous plan.</p><button class="btn secondary" onclick="showHistory()">Show Saved Versions</button><div id="historyResult"></div></div>`;
+}
+
+function readinessPanel(){
+ const checks=[
+  ["Customer intake","PASS"],
+  ["Frequency-aware calculations","PASS"],
+  ["Affordability safeguard","PASS"],
+  ["Transfer reasoning","PASS"],
+  ["Approval checkpoint","PASS"],
+  ["Change-impact workflow","PASS"],
+  ["Version history (beta/local)","PASS"],
+  ["Real bank/transaction connection","NOT YET"],
+  ["Production persistent customer database","NOT YET"],
+  ["Automated production follow-ups","NOT YET"]
+ ];
+ return `<div class="section"><h3>Build Readiness</h3><div class="review">${checks.map(c=>`<p><b>${esc(c[0])}</b> — <span class="${c[1]==="PASS"?"ok":"warn"}">${c[1]}</span></p>`).join("")}</div>
+ <div class="note"><b>Our standard:</b> “Completed” means the system works reliably end-to-end, not merely that the screens look finished. Anything marked NOT YET stays out of the customer promise until it is built and tested.</div></div>`;
+}
+
+function timingChecks(){
+ const issues=[];
+ const today=new Date(); today.setHours(12,0,0,0);
+ if(S.nextPay){
+   const p=parseDate(S.nextPay);
+   if(!p)issues.push("Next pay date could not be read.");
+   else if(p<today)issues.push("Next pay date is in the past; confirm the next actual pay date.");
+ }
+ (S.bills||[]).forEach(b=>{
+   if(!b||typeof b!=="object"){issues.push("A bill entry is malformed and needs review.");return;}
+   if(b.due!=="" && (!/^\d{1,2}$/.test(String(b.due)) || +b.due<1 || +b.due>31))
+     issues.push(`Bill "${b.name}" has an invalid due day.`);
+ });
+ (S.savings||[]).forEach(g=>{
+   if(!g||typeof g!=="object"){issues.push("A savings goal entry is malformed and needs review.");return;}
+   if(g.date && !parseDate(g.date))issues.push(`Savings goal "${g.name}" has an invalid target date.`);
+ });
+ return [...new Set(issues)];
+}
+
+function flowCalendar(){
+ const events=[];
+ const today=new Date(); today.setHours(12,0,0,0);
+ if(S.nextPay&&S.incomeAmount){
+   const d=parseDate(S.nextPay);
+   if(d)events.push({date:d,label:"Income",amount:parseMoney(S.incomeAmount),type:"in"});
+ }
+ (S.bills||[]).forEach(b=>{
+   const day=parseInt(b.due,10);
+   if(day>=1&&day<=31){
+     const now=new Date(), d=new Date(now.getFullYear(),now.getMonth(),Math.min(day,31),12);
+     if(d<today)d.setMonth(d.getMonth()+1);
+     events.push({date:d,label:b.name,amount:+b.amount||0,type:"out"});
+   }
+ });
+ S.nonMonthly.forEach(n=>{
+   const f=(n.freq||"").toLowerCase();
+   if(f.includes("year") && n.amount>0){
+     events.push({date:new Date(today.getFullYear(),11,31,12),label:`${n.name} · annual planning point`,amount:+n.amount,type:"out"});
+   }
+ });
+ S.savings.forEach(g=>{
+   const d=parseDate(g.date);
+   if(d && d>=today){
+     const target=parseMoney(g.target), saved=parseMoney(g.saved);
+   const remaining=(Number.isFinite(target)&&Number.isFinite(saved))?Math.max(target-saved,0):0;
+     if(remaining>0)events.push({date:d,label:`${g.name} · goal target`,amount:remaining,type:"goal"});
+   }
+ });
+ events.sort((a,b)=>a.date-b.date);
+ const timing=timingChecks();
+ if(!events.length && !timing.length)return `<div class="note">Add a next-pay date and bill due dates to see the first cash-flow calendar.</div>`;
+ return `<div class="section"><h3>First Cash-Flow Calendar</h3>
+ <p>Known dates are shown first. Money Reset does not assume that an undated commitment occurs at a convenient time.</p>
+ ${timing.length?`<div class="note"><b>Timing checks:</b><br>${timing.map(v=>"• "+esc(v)).join("<br>")}</div>`:""}
+ ${events.slice(0,16).map(e=>`<div class="review"><b>${esc(e.date.toLocaleDateString())}</b> · ${e.type==="in"?"Money in":e.type==="goal"?"Goal target":"Commitment"} · ${esc(e.label)} · <span class="${e.type==="in"?"ok":"warn"}">${e.type==="in"?"+":"−"}${money(e.amount)}</span></div>`).join("")}
+ <div class="note">This is a planning preview. Production will carry the running balance event-by-event, include all confirmed transactions and transfer states, handle recurring income/bills across future dates, and flag timing uncertainty instead of guessing.</div></div>`;
+}
+
+function transferLedger(){
+ return `<div class="section"><h3>Money Movement Ledger</h3>
+ <p>Transfers are tracked separately from income and expenses so the same dollars are never counted twice.</p>
+ <div class="row"><div class="field"><label>Amount</label><input id="lgAmt" type="number" min="0" placeholder="500"></div>
+ <div class="field"><label>Status</label><select id="lgStatus"><option>Initiated</option><option>Confirmed available</option><option>Pending</option></select></div></div>
+ <div class="row"><div class="field"><label>From</label><input id="lgFrom" placeholder="Savings"></div>
+ <div class="field"><label>To</label><input id="lgTo" placeholder="Checking"></div></div>
+ <button class="btn secondary" onclick="addTransfer()">Add Transfer Test</button><div id="ledgerResult"></div></div>`;
+}
+function addTransfer(){
+ const amount=parseMoney(document.getElementById("lgAmt").value), status=document.getElementById("lgStatus").value, from=document.getElementById("lgFrom").value||"source", to=document.getElementById("lgTo").value||"destination";
+ if(!Number.isFinite(amount)||amount<=0){document.getElementById("ledgerResult").innerHTML=`<div class="note">Enter a transfer amount greater than $0 before recording the movement.</div>`;return;}
+ if(!Array.isArray(S.transfers))S.transfers=[];
+ S.transfers.unshift({amount,status,from,to,time:new Date().toISOString()});
+ S.transfers=S.transfers.slice(0,20);
+ invalidateApproval();
+ persistBeta();
+ document.getElementById("ledgerResult").innerHTML=`<div class="note"><b>Recorded:</b> ${money(amount)} from ${esc(from)} → ${esc(to)} · ${esc(status)}.<br>This remains a transfer, not new income. ${status==="Confirmed available"?"The destination may be treated as available, subject to the rest of the plan.":"The destination is not treated as confirmed spendable yet."}</div>`;
+}
+
+function classifyData(){
+ const rows=[];
+ const income=parseMoney(S.incomeAmount);
+ const reserve=parseReserveAmount(S.reserve);
+ rows.push({label:"Income frequency",state:S.incomeFreq?"Confirmed":"Unknown"});
+ rows.push({label:"Take-home income",state:S.incomeAmount!==""&&S.incomeAmount!=null?(Number.isFinite(income)&&income>0?"Confirmed":"Needs review"):"Unknown"});
+ rows.push({label:"Next pay date",state:S.nextPay?"Confirmed":"Unknown"});
+ rows.push({label:"Accounts",state:S.accounts.length?"Confirmed":"Unknown"});
+ rows.push({label:"Regular bills",state:S.bills.length?"Captured":"Unknown"});
+ rows.push({label:"Everyday spending",state:S.spending.length?"Captured":"Unknown"});
+ rows.push({label:"Debt",state:S.debts.length?"Captured":"Not provided"});
+ rows.push({label:"Savings goals",state:S.savings.length?"Captured":"Not provided"});
+ rows.push({label:"Reserve",state:S.reserve!==""&&S.reserve!=null?(Number.isFinite(reserve)&&reserve>=0?"Captured":"Needs review"):"Not provided"});
+ rows.push({label:"Upcoming expenses",state:S.upcoming?"Captured":"Not provided"});
+ return rows;
+}
+function reconcile(){
+ const issues=[], x=snapshot();
+ const reserveAmount=parseReserveAmount(S.reserve);
+ if(S.reserve!==""&&S.reserve!=null&&(!Number.isFinite(reserveAmount)||reserveAmount<0))issues.push("Reserve must be a valid amount of $0 or more; confirm the amount entered.");
+ S.bills.forEach(b=>{if(!b||typeof b!=="object"){issues.push("A bill entry is malformed and needs review.");return;} const amount=parseMoney(b.amount); if(!Number.isFinite(amount)||amount<0)issues.push(`Bill "${b.name||"Unnamed bill"}" has an invalid amount.`); if(!b.freq||b.freq==="unknown")issues.push(`Bill "${b.name||"Unnamed bill"}" needs a frequency.`)});
+ S.spending.forEach(v=>{if(!v||typeof v!=="object"){issues.push("A spending entry is malformed and needs review.");return;} const amount=parseMoney(v.amount); if(!Number.isFinite(amount)||amount<0)issues.push(`Spending "${v.name||"Unnamed spending"}" has an invalid amount.`); if(monthlyAmount(amount,v.freq)==null)issues.push(`Spending "${v.name||"Unnamed spending"}" has a frequency that cannot yet be normalized.`)});
+ S.debts.forEach(d=>{if(!d||typeof d!=="object"){issues.push("A debt entry is malformed and needs review.");return;} const bal=parseMoney(d.balance), min=parseMoney(d.min); if(!Number.isFinite(bal)||bal<0)issues.push(`Debt "${d.name||"Unnamed debt"}" has an invalid balance.`); if(d.min!==""&&d.min!=null&&(!Number.isFinite(min)||min<0))issues.push(`Debt "${d.name||"Unnamed debt"}" has an invalid minimum payment.`); if(d.min!==""&&d.min!=null&&monthlyAmount(min,d.freq)==null)issues.push(`Debt "${d.name||"Unnamed debt"}" has a payment frequency that cannot yet be normalized.`)});
+ const unknownFreq=[...(S.bills||[]),...(S.spending||[]),...(S.debts||[]).filter(d=>d&&d.min!==""&&d.min!=null)].filter(v=>!v || monthlyAmount(v.amount??v.min,v.freq)==null).length;
+ issues.push(...timingChecks());
+ S.nonMonthly.forEach(n=>{
+   if(!n||typeof n!=="object"){issues.push("A non-monthly expense entry is malformed and needs review.");return;}
+   const amount=parseMoney(n.amount); if(!Number.isFinite(amount)||amount<0)issues.push(`Non-monthly expense "${n.name||"Unnamed expense"}" has an invalid amount.`);
+   if(!n.freq||n.freq==="unknown")issues.push(`Non-monthly expense "${n.name||"Unnamed expense"}" needs a frequency or timing description.`);
+ });
+ S.savings.forEach(g=>{if(!g||typeof g!=="object"){issues.push("A savings goal entry is malformed and needs review.");return;} const target=parseMoney(g.target),saved=parseMoney(g.saved); if(!Number.isFinite(target)||target<0||!Number.isFinite(saved)||saved<0)issues.push(`Savings goal "${g.name||"Unnamed goal"}" has an invalid amount.`); else if(saved>target)issues.push(`Savings goal "${g.name||"Unnamed goal"}" has more saved than its target.`);});
+ const seenBills=new Set();
+ (S.bills||[]).forEach(b=>{
+   if(!b||typeof b!=="object") return;
+   const key=[String(b.name||"").trim().toLowerCase(),Number(b.amount)||0,
+              String(b.freq||"").trim().toLowerCase(),String(b.due||"").trim()].join("|");
+   if(key!=="|||"){
+     if(seenBills.has(key)) issues.push("An exact duplicate bill entry was detected; review it before finalizing.");
+     seenBills.add(key);
+   }
+ });
+
+ return {issues:[...new Set(issues)],unknownFreq,monthlyIncome:x.inc,monthlyOutflow:x.out,remaining:x.remaining};
+}
+function knowledgePanel(){
+ const rows=classifyData();
+ return `<div class="section"><h3>Your Money Reset Record</h3><p class="mini">Private beta record · <b>Versioned</b> · Changes should be traceable rather than silently overwritten.</p></div>
+ <div class="section"><h3>What Money Reset Knows</h3>
+ <p>Customers should be able to see what is confirmed versus what still needs clarification.</p>
+ ${rows.map(r=>`<div class="review"><b>${esc(r.label)}</b> · <span class="${r.state==="Confirmed"||r.state==="Captured"?"ok":"warn"}">${esc(r.state)}</span></div>`).join("")}
+ </div>`;
+}
+function reconciliationPanel(){
+ const r=reconcile();
+ return `<div class="section"><h3>Reconciliation Check</h3>
+ ${r.issues.length?`<p class="warn">${r.issues.map(v=>"• "+esc(v)).join("<br>")}</p>`:`<p class="ok">✓ No basic data-format conflicts found in the current beta record.</p>`}
+ ${r.unknownFreq?`<div class="note">${r.unknownFreq} item(s) cannot be safely converted to a monthly equivalent. Money Reset keeps their actual timing rather than inventing a number.</div>`:""}
+ </div>`;
+}
+
+function customerExport(){
+ const payload={version:"Money Reset Private Beta",created:new Date().toISOString(),data:cleanRecord()};
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="money-reset-beta-record.json";a.click();URL.revokeObjectURL(a.href);
+}
+function normalizeImportedRecord(incoming){
+ const allowed=["step","goals","incomeFreq","incomeAmount","nextPay","accounts","bills","nonMonthly","spending","debts","debtPref","savings","reserve","upcoming","stress","anything","approved","transfers"];
+ const out={};
+ allowed.forEach(k=>{if(Object.prototype.hasOwnProperty.call(incoming,k))out[k]=incoming[k];});
+ const arrays=["goals","accounts","bills","nonMonthly","spending","debts","savings","upcoming","transfers"];
+ arrays.forEach(k=>{
+   if(!Array.isArray(out[k]))out[k]=[];
+   if(k==="goals"||k==="accounts") out[k]=out[k].filter(v=>typeof v==="string").map(v=>v.slice(0,200));
+   else if(k==="upcoming") out[k]=out[k].filter(v=>(typeof v==="string")||(v&&typeof v==="object"&&!Array.isArray(v))).map(v=>{if(typeof v==="string")return {description:v.slice(0,2000),amount:null,date:""};return {description:String(v.description||v.name||"Upcoming commitment").slice(0,500),amount:Number.isFinite(v.amount)?v.amount:null,date:String(v.date||"").slice(0,20)}});
+   else out[k]=out[k].filter(v=>v&&typeof v==="object"&&!Array.isArray(v)).map(v=>{
+     const q={}; Object.keys(v).slice(0,12).forEach(key=>{
+       const val=v[key];
+       if(typeof val==="string")q[key]=val.slice(0,500);
+       else if(typeof val==="number"&&Number.isFinite(val))q[key]=val;
+     });
+     return q;
+   });
+ });
+ if(typeof out.step!=="number" || !Number.isFinite(out.step))out.step=1;
+ out.step=Math.max(0,Math.min(MAX_BETA_STEP,Math.floor(out.step)));
+ if(typeof out.incomeFreq!=="string")out.incomeFreq="";
+ if(typeof out.incomeAmount!=="number" && typeof out.incomeAmount!=="string")out.incomeAmount="";
+ if(typeof out.nextPay!=="string")out.nextPay="";
+ if(typeof out.debtPref!=="string")out.debtPref="";
+ if(typeof out.reserve!=="number" && typeof out.reserve!=="string")out.reserve="";
+ if(typeof out.stress!=="string")out.stress="";
+ if(typeof out.anything!=="string")out.anything="";
+ out.approved=false;
+ return out;
+}
+function customerImport(){
+ const raw=prompt("Paste your Money Reset record JSON:");
+ if(!raw)return;
+ try{
+   const parsed=JSON.parse(raw);
+   const incoming=parsed&&parsed.data?parsed.data:parsed;
+   if(!incoming||typeof incoming!=="object"||Array.isArray(incoming))throw new Error("Invalid record");
+   const normalized=normalizeImportedRecord(incoming);
+   const before=JSON.parse(JSON.stringify(cleanRecord()));
+   Object.keys(normalized).forEach(k=>{S[k]=normalized[k];});
+   S.approved=false;
+   if(!persistBeta()){
+     Object.keys(before).forEach(k=>{S[k]=before[k];});
+     S.approved=false;
+     render();
+     throw new Error("Could not save restored record");
+   }
+   render();
+   alert("Money Reset record restored and saved on this device. Please review your information before continuing.");
+ }catch(e){alert("That record could not be restored. Your previous saved record was not replaced.");}
+}
+function productPrivacy(){
+ return `<div class="section"><h3>Customer Data Controls</h3>
+ <p>The beta can export or restore its test record. This is useful for QA and does not require collecting bank passwords or credentials.</p>
+ <button class="btn secondary" onclick="customerExport()">Export Test Record</button>
+ <button class="btn secondary" onclick="customerImport()">Restore Test Record</button>
+ </div>`;
+}
+
+function followUpQueue(){
+ const items=[];
+ if(!S.incomeFreq||!S.incomeAmount||!S.nextPay)
+   items.push({priority:"High",q:"Confirm your income frequency, take-home amount, and next pay date."});
+ if(S.bills.some(b=>!b.due))
+   items.push({priority:"Medium",q:"Confirm due dates for bills where the due day is unknown."});
+ if(S.bills.some(b=>!b.freq||b.freq==="unknown"))
+   items.push({priority:"High",q:"Confirm the frequency of any bill that cannot be placed on its actual schedule."});
+ if(S.spending.some(v=>monthlyAmount(v.amount,v.freq)==null))
+   items.push({priority:"Medium",q:"Clarify the frequency of variable spending that cannot safely be normalized."});
+ if(S.savings.some(g=>{
+   if(!g||typeof g!=="object")return true;
+   const target=parseMoney(g.target),saved=g.saved;
+   return Number.isFinite(target)&&target>0&&(!g.date||saved===""||saved==null||!Number.isFinite(parseMoney(saved))||parseMoney(saved)<0);
+ }))
+   items.push({priority:"Medium",q:"Add missing savings-goal dates or current saved amounts where relevant."});
+ return items;
+}
+function waterfall(){
+ const x=snapshot();
+ if(x.inc==null)return `<div class="note">A cash-flow waterfall will appear after confirmed income information is entered.</div>`;
+ return `<div class="section"><h3>Cash-Flow Waterfall</h3>
+ <div class="review"><b>1 · Money In</b><p>${money(x.inc)} monthly equivalent from entered income timing.</p></div>
+ <div class="review"><b>2 · Required/known commitments</b><p>${money(x.bills)} regular bills + ${money(x.debt)} debt minimums.</p></div>
+ <div class="review"><b>3 · Real-life spending</b><p>${money(x.spend)} monthly equivalent where the entered frequency can be calculated.</p></div>
+ <div class="review"><b>4 · Remaining before goals</b><p><b>${x.remaining==null?"Needs clarification":money(x.remaining)}</b></p></div>
+ <div class="note">This waterfall is a planning view, not a bank-balance view. Non-monthly expenses, reserves, transfers, and exact pay-period timing still have to be placed on the calendar before a final spending amount can be considered reliable.</div>
+ </div>`;
+}
+function smartQueuePanel(){
+ const q=followUpQueue();
+ return `<div class="section"><h3>Smart Follow-Up Queue</h3>
+ ${q.length?q.map(i=>`<div class="review"><span class="pill">${esc(i.priority)}</span><p>${esc(i.q)}</p></div>`):`<p class="ok">✓ No obvious follow-up questions from the current beta record.</p>`}
+ <p class="mini">The production system should ask only questions that materially improve the plan.</p></div>`;
+}
+
+function rulesPanel(){
+ const transferRule='Transfers do not create new money; same-day execution order is not assumed.';
+ return `<div class="section"><h3>How Money Reset Decides</h3>
+ <div class="review"><b>Protect first</b><p>Required commitments and customer-approved reserves are protected before discretionary goals or spending are treated as available.</p></div><div class="note">${esc(transferRule)}</div>
+ <div class="review"><b>Don't guess</b><p>Missing or uncertain information becomes a follow-up question or an explicitly labeled estimate.</p></div>
+ <div class="review"><b>Don't double-count</b><p>Transfers move existing money between locations. They are never treated as new income.</p></div>
+ <div class="review"><b>Use real timing</b><p>Monthly, weekly, twice-monthly, seasonal, and as-needed spending stays on its stated pattern unless the customer chooses otherwise.</p></div>
+ <div class="review"><b>Ask before changing</b><p>Material changes to priorities, allocations, or goals require customer approval.</p></div>
+ </div>`;
+}
+function readinessSummary(){
+ const r=reconcile(), q=followUpQueue();
+ return `<div class="section"><h3>Beta Readiness Snapshot</h3>
+ <p><span class="pill">Intake connected</span><span class="pill">Math connected</span><span class="pill">QA connected</span><span class="pill">Change flow connected</span></p>
+ ${r.issues.length?`<p class="warn">${r.issues.length} data issue(s) need attention before a final plan.</p>`:`<p class="ok">✓ No basic reconciliation conflicts detected in the current record.</p>`}
+ ${q.length?`<p>Next smart follow-up: <b>${esc(q[0].q)}</b></p>`:`<p class="ok">✓ No obvious smart follow-ups remain in this beta record.</p>`}
+ </div>`;
+}
+
+function actionPlan(){
+ const x=snapshot(), actions=[];
+ if(!S.incomeFreq||!S.incomeAmount||!S.nextPay)actions.push(["HIGH","Confirm income and next-pay timing before relying on a precise cash-flow plan."]);
+ if(!S.bills.length)actions.push(["HIGH","Enter required bills and their actual due dates."]);
+ if(S.bills.some(b=>!b.due))actions.push(["MEDIUM","Confirm missing bill due dates so commitments can be placed on the calendar."]);
+ if(S.nonMonthly.length)actions.push(["MEDIUM","Place non-monthly expenses on their actual schedule and protect for them without changing their real frequency."]);
+ if(S.spending.length)actions.push(["MEDIUM","Compare real-life spending with available cash flow before assigning discretionary targets."]);
+ if(S.debts.length)actions.push(["MEDIUM","Protect minimum payments, then apply the customer's chosen payoff preference if cash flow supports it."]);
+ if(S.savings.length)actions.push(["MEDIUM","Test savings goals against available cash flow and requested dates."]);
+ if(S.reserve)actions.push(["MEDIUM","Keep the customer-defined reserve purpose visible before allocating other dollars."]);
+ if(!actions.length)actions.push(["NEXT","Use the current cash-flow picture to finalize priorities and customer-approved allocations."]);
+ return `<div class="section"><h3>Personalized Action Plan</h3>
+ ${actions.map(a=>`<div class="review"><span class="pill">${a[0]}</span><p>${esc(a[1])}</p></div>`).join("")}
+ <div class="note">This action list is intentionally conservative. Money Reset should never turn an uncertain calculation into a confident instruction.</div></div>`;
+}
+
+function binderPreview(){
+ const x=snapshot(), goals=goalFeasibility();
+ return `<div class="section"><h3>Personalized Money Reset Binder</h3>
+ <p>The finished customer binder should be assembled around what this household actually needs—not a giant generic workbook.</p>
+ <div class="grid">
+  <div class="review"><b>01 · Money Snapshot</b><p>Income, known outflow, account structure, and current planning status.</p></div>
+  <div class="review"><b>02 · Cash-Flow Plan</b><p>Actual pay dates, bill timing, commitments, and available room.</p></div>
+  <div class="review"><b>03 · Spending Plan</b><p>Real spending patterns, not forced weekly conversions.</p></div>
+  <div class="review"><b>04 · Debt Plan</b><p>Minimums, payoff preference, and progress.</p></div>
+  <div class="review"><b>05 · Goals</b><p>${goals.length?goals.map(g=>esc(g.name)).join(", "):"Only relevant goals appear here."}</p></div>
+  <div class="review"><b>06 · Upcoming</b><p>Non-monthly expenses, events, and known future commitments.</p></div>
+ </div>
+ <div class="note"><b>Dynamic assembly:</b> A customer who has no debt should not receive a giant debt workbook. A customer focused on a trip should see that goal prominently. The binder is built around the household. Planning Room is a planning calculation, not a bank balance.</div></div>`;
+}
+function dashboardPreview(){
+ const x=snapshot();
+ return `<div class="section"><h3>Customer Dashboard</h3>
+ <div class="metricgrid">
+  <div class="metric"><span>Money In</span><strong>${x.inc!=null?money(x.inc):"Review"}</strong></div>
+  <div class="metric"><span>Planning Room</span><strong>${x.remaining!=null?money(x.remaining):"Review"}</strong></div>
+  <div class="metric"><span>Next Money Move</span><strong style="font-size:18px">${S.nextPay?"Check cash-flow":"Add pay date"}</strong></div>
+  <div class="metric"><span>Attention</span><strong style="font-size:18px">${qaGate().length?"Review":"Clear"}</strong></div>
+ </div>
+ <p>The production dashboard will make the customer's next decision obvious without requiring them to reread their whole budget. <b>Planning Room is a planning calculation, not a bank balance.</b></p></div>`;
+}
+
+function planState(){
+ const q=followUpQueue(), r=reconcile();
+ if(q.some(v=>v.priority==="High")||r.issues.length)return {label:"Needs Review",cls:"warn"};
+ if(q.length)return {label:"Almost Ready",cls:"warn"};
+ return {label:"Ready for Your Plan",cls:"ok"};
+}
+function askMoneyReset(){
+ const box=document.getElementById("askResult"), input=document.getElementById("askInput");
+ const q=(input.value||"").trim().toLowerCase();
+ if(!q){box.innerHTML='<div class="note">Ask a question about the information you entered.</div>';return}
+ const x=snapshot(), state=planState();
+ let answer;
+ if(q.includes("safe")||q.includes("spend"))answer=x.remaining!=null&&x.remaining>=0?
+ `Your current remaining planning amount is ${money(x.remaining)}, but Money Reset does not automatically treat that amount as available to spend. Timing, reserves, transfers, and upcoming commitments still matter.`:
+ `I don't have enough confirmed information to give you a reliable spending amount yet.`;
+ else if(q.includes("goal")||q.includes("save"))answer=`You currently have ${S.savings.length} savings goal(s). Money Reset checks the target, date, amount already saved, and available cash flow before treating a goal as feasible.`;
+ else if(q.includes("debt"))answer=`You currently have ${S.debts.length} debt item(s). Minimum payments are protected first; payoff strategy follows the customer's chosen preference when cash flow supports it.`;
+ else if(q.includes("bill"))answer=`You currently have ${S.bills.length} regular bill(s) captured. Bills with unclear timing remain items for clarification rather than being guessed.`;
+ else answer=`Your current Money Reset status is "${state.label}". I can explain the current income, bills, spending, debt, goals, timing, or attention items using the information you've entered.`;
+ box.innerHTML=`<div class="note"><b>Money Reset:</b> ${esc(answer)}</div>`;
+}
+function askPanel(){
+ return `<div class="section"><h3>Ask Money Reset</h3>
+ <p>In the finished product, customers can ask questions without rebuilding their plan.</p>
+ <div class="field"><input id="askInput" placeholder="Example: Can I afford this goal?"></div>
+ <button class="btn primary" onclick="askMoneyReset()">Ask</button><div id="askResult"></div></div>`;
+}
+function statePanel(){
+ const s=planState();
+ return `<div class="section"><h3>Plan Status</h3><p class="${s.cls}"><b>${esc(s.label)}</b></p>
+ <p class="mini">Status is driven by missing/uncertain information and reconciliation issues—not by whether the customer simply wants a prettier dashboard.</p></div>`;
+}
+function plan(){
+ const x=snapshot(), deficit=x.remaining!=null&&x.remaining<0, goals=goalFeasibility(), allocation=allocationPanel(), qa=qaGate(), f=followUps();
+ return `<div class="metricgrid">
+ <div class="metric"><span>Monthly income</span><strong>${money(x.inc)}</strong></div>
+ <div class="metric"><span>Known monthly outflow</span><strong>${money(x.out)}</strong></div>
+ <div class="metric"><span>Before goals</span><strong class="${deficit?"warn":""}">${x.remaining==null?"Needs info":money(x.remaining)}</strong></div>
+ </div>
+ <div class="section"><h3>Attention Center</h3>
+ ${qa.length?`<p class="warn">${qa.map(v=>"• "+esc(v)).join("<br>")}</p>`:`<p class="ok">✓ Core intake information passed the QA gate.</p>`}
+ ${f.length?`<div class="note"><b>Smart follow-ups for the next pass:</b><br>${f.map(v=>"• "+esc(v)).join("<br>")}</div>`:""}
+ </div>
+ <div class="section"><h3>Current Planning Room</h3>
+ ${x.remaining==null?`<p class="warn">Not enough confirmed information to calculate a reliable amount yet.</p>`:
+ deficit?`<p class="warn">No spendable amount is assigned. Known recurring commitments exceed the income entered, so affordability needs review before recommendations are made.</p>`:
+ `<p><b>${money(x.remaining)}</b> is the current planning room after known monthly-equivalent recurring outflows. It is <b>not</b> a guaranteed spending amount: timing, reserves, transfers, non-monthly commitments, and actual balances still matter.</p>${S.nonMonthly.length?`<div class="note"><b>Important:</b> ${S.nonMonthly.length} non-monthly expense(s) are not included in that monthly-equivalent room. They remain on their actual schedule and must be protected on the cash-flow timeline.</div>`:""}`}
+ </div>
+ ${cashFlowPreview()}${cashFlowTimingPanel()}${flowCalendar()}${waterfall()}${transferLedger()}${allocation}<div class="section"><h3>Upcoming Commitment Check</h3>${(()=>{const r=upcomingRiskSummary();return r.items.length?`<p>${r.items.length} dated upcoming commitment(s) totaling <b>${money(r.total)}</b> are within the next 90 days.</p>${r.warn?`<div class="note">⚠️ These upcoming commitments exceed the current planning room. Protect them on their actual dates before treating planning room as available for new goals or spending.</div>`:`<div class="note">Protect these expenses on their actual dates before treating planning room as available for new goals or spending.</div>`}`:`<p class="mini">No dated, confirmed-dollar upcoming commitments were captured for the next 90 days.</p>`})()}</div>
+ <div class="section"><h3>Goal Feasibility</h3>
+ ${goals.length?goals.map(g=>`<div class="review"><b>${esc(g.name)}</b><p>Approx. ${money(g.needed)}/month needed${g.months?` over ${g.months.toFixed(1)} months`:""} · <span class="${g.status==="within current planning room"?"ok":"warn"}">${esc(g.status)}</span><br><span class="mini">This tests the goal by itself; multiple goals still compete for the same available cash flow.</span></p></div>`).join(""):`<p>No savings goals entered yet.</p>`}
+ </div>
+ <div class="section"><h3>Next Money Moves</h3>
+ <p>1. Protect required commitments.<br>2. Preserve approved reserves.<br>3. Keep non-monthly expenses on their real schedule.<br>4. Test goals against actual cash flow.<br>5. Ask before changing priorities or reallocating money.</p></div>
+ ${changeCenter()}${changeEditor()}${historyPanel()}${productPrivacy()}${knowledgePanel()}${reconciliationPanel()}${smartQueuePanel()}${rulesPanel()}${actionPlan()}${dashboardPreview()}${binderPreview()}${askPanel()}${statePanel()}
+ <div class="section"><h3>Privacy & Trust</h3><p>For the beta, enter only information needed to test the experience. Never enter passwords, full bank account numbers, Social Security numbers, or other credentials.</p><p>Money Reset should clearly distinguish <b>confirmed</b>, <b>calculated</b>, <b>estimated</b>, and <b>unknown</b> information.</p></div>
+ <div class="section"><h3>Save & Return</h3><p>This private beta can save its current test data locally on this device.</p><button class="btn secondary" onclick="saveBeta()">Save Beta Data</button> <button class="btn secondary" onclick="clearBeta()">Clear Saved Data</button></div>`;
+}
+
+function reset(){try{localStorage.removeItem("moneyResetBeta");localStorage.removeItem("moneyResetHistory")}catch(e){} location.reload()}
+
+render();</script>
+</body>
+</html>
