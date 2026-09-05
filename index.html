@@ -112,18 +112,18 @@ function parseRows(text,kind){
      if(kind==="savings")return {name:p[0]||"Unnamed goal",target:p[1]===""||p[1]==null?NaN:parseMoney(p[1]),date:p[2]||"",saved:p[3]===""||p[3]==null?0:parseSavedAmount(p[3])};
    }
    if(kind==="bills"){
-     const freq=(/every\s*2\s*weeks?|bi-?weekly/i.test(line)?"every 2 weeks":/weekly|per week|a week|each week/i.test(line)?"weekly":/twice\s*(?:a|per)\s*month|two times a month/i.test(line)?"twice a month":/monthly|per month|a month|each month/i.test(line)?"monthly":/yearly|annual|per year|a year/i.test(line)?"yearly":"unknown");
+     const freq=(/(?:every\s*2|every\s*two)\s*weeks?|bi-?weekly/i.test(line)?"every 2 weeks":/weekly|per week|a week|each week/i.test(line)?"weekly":/twice\s*(?:a|per)\s*month|two times a month/i.test(line)?"twice a month":/monthly|per month|a month|each month/i.test(line)?"monthly":/yearly|annual|per year|a year/i.test(line)?"yearly":"unknown");
      const amount=parseNaturalAmount(line,freq);
      const name=line.replace(/(?:\$\s*)?[0-9]+(?:,[0-9]{3})*(?:\.\d{1,2})?\s*(?:dollars?)?/gi,"").replace(/\b(?:once|twice|three times|every\s*2|every|per|a|each)\b.*$/i,"").replace(/[-–—]+\s*$/," ").trim();
      const dueMatch=line.match(/\b(?:due|on the)\s*(?:day\s*)?(\d{1,2})\b/i);
      return {name:name||"Unnamed bill",amount,freq,due:dueMatch?dueMatch[1]:""};
    }
    if(kind==="nonMonthly"){
-     const freq=/every\s*2\s*weeks?|bi-?weekly/i.test(line)?"every 2 weeks":/weekly|per week|a week/i.test(line)?"weekly":/monthly|per month|a month/i.test(line)?"monthly":/yearly|annual|per year|a year/i.test(line)?"yearly":/as needed|when needed|occasionally/i.test(line)?"as needed":"unknown";
+     const freq=/(?:every\s*2|every\s*two)\s*weeks?|bi-?weekly/i.test(line)?"every 2 weeks":/weekly|per week|a week/i.test(line)?"weekly":/monthly|per month|a month/i.test(line)?"monthly":/yearly|annual|per year|a year/i.test(line)?"yearly":/as needed|when needed|occasionally/i.test(line)?"as needed":"unknown";
      return {name:line.replace(/(?:\$\s*)?[0-9]+(?:,[0-9]{3})*(?:\.\d{1,2})?\s*(?:dollars?)?/gi,"").trim()||"Unnamed expense",amount:parseNaturalAmount(line,freq),freq};
    }
    if(kind==="spending"){
-     const freq=/every\s*2\s*weeks?|bi-?weekly/i.test(line)?"every 2 weeks":/weekly|per week|a week|each week/i.test(line)?"weekly":/twice\s*(?:a|per)\s*month|two times a month/i.test(line)?"twice a month":/monthly|per month|a month|each month/i.test(line)?"monthly":/yearly|annual|per year|a year/i.test(line)?"yearly":"unknown";
+     const freq=/(?:every\s*2|every\s*two)\s*weeks?|bi-?weekly/i.test(line)?"every 2 weeks":/weekly|per week|a week|each week/i.test(line)?"weekly":/twice\s*(?:a|per)\s*month|two times a month/i.test(line)?"twice a month":/monthly|per month|a month|each month/i.test(line)?"monthly":/yearly|annual|per year|a year/i.test(line)?"yearly":"unknown";
      const amount=parseNaturalAmount(line,freq);
      const name=line.replace(/(?:\$\s*)?[0-9]+(?:,[0-9]{3})*(?:\.\d{1,2})?\s*(?:dollars?)?/gi,"").replace(/\b(?:every\s*2|every|per|a|each)\s+(?:\d+\s*)?weeks?|\b(?:weekly|monthly|yearly|per\s+month|per\s+week)\b/gi,"").replace(/\|/g,"").trim();
      return {name:name||"Unnamed spending",amount,freq};
@@ -143,6 +143,9 @@ function naturalLanguageIntegrityTest(){
  const check=(label,kind,text,expect)=>{try{const r=parseRows(text,kind);cases.push({label,pass:!!expect(r),detail:JSON.stringify(r)});}catch(e){cases.push({label,pass:false,detail:e.message})}};
  check("Bill uses the bill amount, not a referenced income amount","bills","phone usually paid once when 114 income comes in - 20 monthly",r=>r.length===1&&r[0].amount===20&&r[0].freq==="monthly");
  check("Weekly spending extracts its own amount","spending","eating out 40 a week",r=>r.length===1&&r[0].amount===40&&r[0].freq==="weekly");
+ check("Every-two-weeks spending accepts the word two","spending","dispo is 40 dollars every two weeks",r=>r.length===1&&r[0].amount===40&&r[0].freq==="every 2 weeks");
+ try{const r=parseIncomeNotes("I get paid 114 one check and then 2 weeks later I get 74. I also get allowance of 17 dollars but 30% of that goes to HYSA.");cases.push({label:"Irregular income notes can produce a recurring planning figure",pass:r.length===3&&Math.abs(r.reduce((a,x)=>a+(monthlyAmount(x.amount,x.freq)||0),0)-255.2333333333)<0.01,detail:JSON.stringify(r)});}catch(e){cases.push({label:"Irregular income notes can produce a recurring planning figure",pass:false,detail:e.message})}
+
  check("Every-two-weeks spending preserves cadence","spending","dispo money 40 dollars every two weeks",r=>r.length===1&&r[0].amount===40&&r[0].freq==="every 2 weeks");
  check("Natural savings goal extracts target and year-end date","savings","I want an emergency savings 500 by the end of 2026",r=>r.length===1&&r[0].target===500&&r[0].date==="2026-12-31"&&r[0].saved===0);
  return cases;
@@ -1715,7 +1718,10 @@ function qaGate(){
  if(!S.incomeAmount)issues.push("Take-home income amount is missing.");
  if(!S.nextPay)issues.push("Next pay date is missing.");
  if(S.incomeAmount!=="" && (!Number.isFinite(parseMoney(S.incomeAmount)) || parseMoney(S.incomeAmount)<=0))issues.push("Take-home income must be a valid amount greater than zero.");
- if(/irregular|multiple/i.test(S.incomeFreq||""))issues.push("This income setup needs a source-by-source or recent-pay-period breakdown before Money Reset can calculate a single recurring income figure.");
+ if(/irregular|multiple/i.test(S.incomeFreq||"")){
+   const parsedIncome=parseIncomeNotes(S.anything);
+   if(!parsedIncome.length)issues.push("This income setup needs a source-by-source or recent-pay-period breakdown before Money Reset can calculate a single recurring income figure.");
+ }
  const requiredOut=totalMonthlyBills()+totalMonthlyDebtMin();
  const inc=incomeMonthly();
  if(inc!=null && requiredOut>inc)issues.push("Required recurring bills and debt minimums exceed the income entered; review affordability before recommendations are made.");
@@ -1727,8 +1733,40 @@ function qaGate(){
 function totalMonthlyBills(){return (S.bills||[]).reduce((a,x)=>{const m=x&&monthlyAmount(x.amount,x.freq);return a+(Number.isFinite(m)?m:0)},0)}
 function totalMonthlySpending(){return (S.spending||[]).reduce((a,x)=>{const m=x&&monthlyAmount(x.amount,x.freq);return a+(Number.isFinite(m)?m:0)},0)}
 function totalMonthlyDebtMin(){return (S.debts||[]).reduce((a,x)=>{const m=x&&monthlyAmount(x.min,x.freq);return a+(Number.isFinite(m)?m:0)},0)}
+function parseIncomeNotes(text){
+ const raw=String(text??"").trim();
+ if(!raw)return [];
+ const sources=[];
+ const moneyRe='(?:\\$\\s*)?([0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?)';
+ // Alternating paychecks: e.g. "I get paid 114 one check and then 2 weeks later I get 74."
+ let m=raw.match(new RegExp('get\\s+paid\\s+'+moneyRe+'[^.\\n]*?(?:2|two)\\s+weeks?\\s+later[^.\\n]*?(?:get\\s+paid\\s+|then\\s+)?'+moneyRe,'i'));
+ if(m){
+   const a=parseMoney(m[1]), b=parseMoney(m[2]);
+   if(Number.isFinite(a)&&Number.isFinite(b)&&a>=0&&b>=0)
+     sources.push({name:"Alternating paycheck A",amount:a,freq:"every 2 weeks",pattern:"alternating"});
+     sources.push({name:"Alternating paycheck B",amount:b,freq:"every 2 weeks",pattern:"alternating"});
+ }
+ // Weekly allowance, including a stated percentage sent to savings/retirement.
+ m=raw.match(new RegExp('allowance\\s+(?:of\\s+)?'+moneyRe+'\\s*(?:dollars?)?','i'));
+ if(m){
+   const gross=parseMoney(m[1]);
+   const pctMatch=raw.match(/allowance[^.\\n]*?([0-9]+(?:\\.[0-9]+)?)\\s*%[^.\\n]*?(?:deduct|goes|sent|put|contribut)/i);
+   const pct=Number.isFinite(parseFloat(pctMatch&&pctMatch[1]))?parseFloat(pctMatch[1]):0;
+   if(Number.isFinite(gross)&&gross>=0){
+     const net=gross*(1-Math.min(Math.max(pct,0),100)/100);
+     sources.push({name:"Allowance",amount:net,freq:"weekly",gross,pctToSavings:pct});
+   }
+ }
+ return sources;
+}
 function incomeMonthly(){
  const a=parseMoney(S.incomeAmount),f=(S.incomeFreq||"").toLowerCase();
+ if(/irregular|multiple/.test(f)){
+   const sources=parseIncomeNotes(S.anything);
+   if(!sources.length)return null;
+   const total=sources.reduce((sum,x)=>sum+(monthlyAmount(x.amount,x.freq)||0),0);
+   return Number.isFinite(total)?total:null;
+ }
  return monthlyAmount(a,f)
 }
 function snapshot(){
