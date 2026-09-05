@@ -150,9 +150,19 @@ function naturalLanguageIntegrityTest(){
  check("Natural savings goal extracts target and year-end date","savings","I want an emergency savings 500 by the end of 2026",r=>r.length===1&&r[0].target===500&&r[0].date==="2026-12-31"&&r[0].saved===0);
  return cases;
 }
+function incomeRegressionCheck(){
+ const base=JSON.parse(JSON.stringify(S));
+ S.incomeAmount="114";S.incomeFreq="irregular";
+ S.anything="My paychecks are irregular. I get paid 114 one check and then 2 weeks later I get 74. I also get allowance of 17 dollars but 30% of that goes to HYSA.";
+ const inc=incomeMonthly();
+ Object.assign(S,base);
+ return {pass:Number.isFinite(inc)&&Math.abs(inc-255.2333333333)<0.01,expected:255.2333333333,actual:inc};
+}
+
 function naturalLanguageIntegrityPanel(){
  const r=naturalLanguageIntegrityTest(),passed=r.filter(x=>x.pass).length;
- return `<div class="section"><h3>Natural-Language Integrity Test</h3><p>Plain-language financial answers must not confuse a referenced number with the actual amount being entered.</p>${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}<div class="note"><b>${passed}/${r.length} natural-language tests passed.</b> Ambiguous information should still be confirmed rather than guessed.</div></div>`;
+ const ir=incomeRegressionCheck();
+ return `<div class="section"><h3>Natural-Language Integrity Test</h3><p>Plain-language financial answers must not confuse a referenced number with the actual amount being entered.</p>${r.map(x=>`<div class="review"><b>${x.pass?"PASS":"FAIL"}</b> · ${esc(x.label)}<br><span class="mini">${esc(x.detail)}</span></div>`).join("")}<div class="review"><b>${ir.pass?"PASS":"FAIL"}</b> · Irregular income monthly-equivalent calculation (${ir.pass?money(ir.actual):"unexpected"}; expected about ${money(ir.expected)})</div><div class="note"><b>${passed+(ir.pass?1:0)}/${r.length+1} natural-language/income tests passed.</b> Ambiguous information should still be confirmed rather than guessed.</div></div>`;
 }
 
 function annualize(amount,freq){
@@ -1724,7 +1734,9 @@ function qaGate(){
  }
  const requiredOut=totalMonthlyBills()+totalMonthlyDebtMin();
  const inc=incomeMonthly();
+ const knownOut=requiredOut+totalMonthlySpending();
  if(inc!=null && requiredOut>inc)issues.push("Required recurring bills and debt minimums exceed the income entered; review affordability before recommendations are made.");
+ if(inc!=null && knownOut>inc)issues.push(`Known monthly outflow exceeds monthly-equivalent income by ${money(knownOut-inc)}; review spending before treating any amount as available for goals.`);
  if((S.savings||[]).some(g=>{if(!g||typeof g!=="object")return true;const t=parseMoney(g.target),v=parseMoney(g.saved);return !Number.isFinite(t)||!Number.isFinite(v)||t<0||v<0||v>t}))issues.push("At least one savings goal has an invalid amount or more saved than its target; confirm the goal details.");
  if(S.reserve!=="" && S.reserve!=null && (!Number.isFinite(parseMoney(S.reserve)) || parseMoney(S.reserve)<0))issues.push("Reserve must be a valid amount of $0 or more; confirm the amount entered.");
  if((S.bills||[]).some(b=>!b || !b.name || !Number.isFinite(parseMoney(b.amount)) || parseMoney(b.amount)<0))issues.push("At least one bill needs correction.");
@@ -1742,15 +1754,16 @@ function parseIncomeNotes(text){
  let m=raw.match(new RegExp('get\\s+paid\\s+'+moneyRe+'[^.\\n]*?(?:2|two)\\s+weeks?\\s+later[^.\\n]*?(?:get\\s+paid\\s+|then\\s+)?'+moneyRe,'i'));
  if(m){
    const a=parseMoney(m[1]), b=parseMoney(m[2]);
-   if(Number.isFinite(a)&&Number.isFinite(b)&&a>=0&&b>=0)
+   if(Number.isFinite(a)&&Number.isFinite(b)&&a>=0&&b>=0){
      sources.push({name:"Alternating paycheck A",amount:a,freq:"every 2 weeks",pattern:"alternating"});
      sources.push({name:"Alternating paycheck B",amount:b,freq:"every 2 weeks",pattern:"alternating"});
+   }
  }
  // Weekly allowance, including a stated percentage sent to savings/retirement.
  m=raw.match(new RegExp('allowance\\s+(?:of\\s+)?'+moneyRe+'\\s*(?:dollars?)?','i'));
  if(m){
    const gross=parseMoney(m[1]);
-   const pctMatch=raw.match(/allowance[^.\\n]*?([0-9]+(?:\\.[0-9]+)?)\\s*%[^.\\n]*?(?:deduct|goes|sent|put|contribut)/i);
+   const pctMatch=raw.match(/allowance[^.\n]*?([0-9]+(?:\.[0-9]+)?)\s*%[^.\n]*?(?:deduct|goes|sent|put|contribut)/i);
    const pct=Number.isFinite(parseFloat(pctMatch&&pctMatch[1]))?parseFloat(pctMatch[1]):0;
    if(Number.isFinite(gross)&&gross>=0){
      const net=gross*(1-Math.min(Math.max(pct,0),100)/100);
@@ -1764,7 +1777,19 @@ function incomeMonthly(){
  if(/irregular|multiple/.test(f)){
    const sources=parseIncomeNotes(S.anything);
    if(!sources.length)return null;
-   const total=sources.reduce((sum,x)=>sum+(monthlyAmount(x.amount,x.freq)||0),0);
+   let total=0;
+   const alt=sources.filter(x=>x.pattern==="alternating");
+   if(alt.length===2){
+     // Two alternating checks are one biweekly sequence, not two biweekly incomes.
+     // Across a year, each check occurs 13 times.
+     total += ((alt[0].amount+alt[1].amount)*13)/12;
+   }else if(alt.length===1){
+     total += monthlyAmount(alt[0].amount,"every 4 weeks") || 0;
+   }
+   sources.filter(x=>x.pattern!=="alternating").forEach(x=>{
+     const m=monthlyAmount(x.amount,x.freq);
+     if(Number.isFinite(m))total+=m;
+   });
    return Number.isFinite(total)?total:null;
  }
  return monthlyAmount(a,f)
@@ -2192,13 +2217,53 @@ function timingChecks(){
  return [...new Set(issues)];
 }
 
+function incomeCalendarEvents(today){
+ const events=[];
+ const f=(S.incomeFreq||"").toLowerCase();
+ if(S.nextPay){
+   const anchor=parseDate(S.nextPay);
+   if(anchor){
+     if(/irregular|multiple/.test(f)){
+       const sources=parseIncomeNotes(S.anything);
+       const payA=sources.find(x=>x.pattern==="alternating"&&x.name.includes("A"));
+       const payB=sources.find(x=>x.pattern==="alternating"&&x.name.includes("B"));
+       if(payA&&payB){
+         for(let i=0;i<12;i++){
+           const d=new Date(anchor); d.setDate(d.getDate()+14*i);
+           const src=(i%2===0)?payA:payB;
+           events.push({date:d,label:i%2===0?"Paycheck A · alternating":"Paycheck B · alternating",amount:src.amount,type:"in"});
+         }
+       }else if(payA){
+         for(let i=0;i<6;i++){
+           const d=new Date(anchor); d.setDate(d.getDate()+28*i);
+           events.push({date:d,label:"Paycheck A",amount:payA.amount,type:"in"});
+         }
+       }
+       const allowance=sources.find(x=>x.name==="Allowance");
+       const noteDate=String(S.anything||"").match(/(?:start|get|getting)\s+(?:getting\s+)?(?:that\s+)?(?:allowance\s+)?(?:on\s+)?(?:sept(?:ember)?\.?\s*\d{1,2}|\d{1,2}\/?\d{1,2})/i);
+       let adate=null;
+       const md=String(S.anything||"").match(/(?:sept(?:ember)?\.?\s*)(\d{1,2})/i);
+       if(md){adate=new Date(anchor.getFullYear(),8,Number(md[1]),12)}
+       if(allowance){
+         if(!adate||adate<today)adate=new Date(today);
+         adate.setHours(12,0,0,0);
+         for(let i=0;i<12;i++){
+           const d=new Date(adate); d.setDate(d.getDate()+7*i);
+           events.push({date:d,label:"Allowance · net",amount:allowance.amount,type:"in"});
+         }
+       }
+     }else{
+       events.push({date:anchor,label:"Income",amount:parseMoney(S.incomeAmount),type:"in"});
+     }
+   }
+ }
+ return events;
+}
+
 function flowCalendar(){
  const events=[];
  const today=new Date(); today.setHours(12,0,0,0);
- if(S.nextPay&&S.incomeAmount){
-   const d=parseDate(S.nextPay);
-   if(d)events.push({date:d,label:"Income",amount:parseMoney(S.incomeAmount),type:"in"});
- }
+ events.push(...incomeCalendarEvents(today));
  (S.bills||[]).forEach(b=>{
    const day=parseInt(b.due,10);
    if(day>=1&&day<=31){
