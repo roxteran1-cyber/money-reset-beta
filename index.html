@@ -1745,7 +1745,7 @@ function qaGate(){
 function totalMonthlyBills(){return (S.bills||[]).reduce((a,x)=>{const m=x&&monthlyAmount(x.amount,x.freq);return a+(Number.isFinite(m)?m:0)},0)}
 function totalMonthlySpending(){return (S.spending||[]).reduce((a,x)=>{const m=x&&monthlyAmount(x.amount,x.freq);return a+(Number.isFinite(m)?m:0)},0)}
 function totalMonthlyDebtMin(){return (S.debts||[]).reduce((a,x)=>{const m=x&&monthlyAmount(x.min,x.freq);return a+(Number.isFinite(m)?m:0)},0)}
-function incomeText(){return String(S.incomeNotes||S.anything||"").trim()}
+function incomeText(){return [S.incomeNotes,S.anything].map(x=>String(x??"").trim()).filter(Boolean).join("\n").trim()}
 function parseIncomeNotes(text){
  const raw=String(text??"").trim();
  if(!raw)return [];
