@@ -33,7 +33,7 @@ const MAX_BETA_STEP=14;
 const S={
  step:0,goals:[],incomeFreq:"",incomeAmount:"",nextPay:"",accounts:[],
  bills:[],nonMonthly:[],spending:[],debts:[],debtPref:"",
- savings:[],reserve:"",upcoming:[],stress:"",anything:"",approved:false,transfers:[]
+ savings:[],reserve:"",upcoming:[],stress:"",anything:"",incomeNotes:"",approved:false,transfers:[]
 };
 
 if(SAVED && SAVED.version===1 && SAVED.data){
@@ -144,7 +144,7 @@ function naturalLanguageIntegrityTest(){
  check("Bill uses the bill amount, not a referenced income amount","bills","phone usually paid once when 114 income comes in - 20 monthly",r=>r.length===1&&r[0].amount===20&&r[0].freq==="monthly");
  check("Weekly spending extracts its own amount","spending","eating out 40 a week",r=>r.length===1&&r[0].amount===40&&r[0].freq==="weekly");
  check("Every-two-weeks spending accepts the word two","spending","dispo is 40 dollars every two weeks",r=>r.length===1&&r[0].amount===40&&r[0].freq==="every 2 weeks");
- try{const r=parseIncomeNotes("I get paid 114 one check and then 2 weeks later I get 74. I also get allowance of 17 dollars but 30% of that goes to HYSA.");cases.push({label:"Irregular income notes can produce a recurring planning figure",pass:r.length===3&&Math.abs(r.reduce((a,x)=>a+(monthlyAmount(x.amount,x.freq)||0),0)-255.2333333333)<0.01,detail:JSON.stringify(r)});}catch(e){cases.push({label:"Irregular income notes can produce a recurring planning figure",pass:false,detail:e.message})}
+ try{const base=JSON.parse(JSON.stringify(S));S.incomeAmount="114";S.incomeFreq="irregular";S.incomeNotes="I get paid 114 one check and then 2 weeks later I get 74. I also get allowance of 17 dollars but 30% of that goes to HYSA.";const actual=incomeMonthly();Object.assign(S,base);cases.push({label:"Irregular income notes can produce a recurring planning figure",pass:Number.isFinite(actual)&&Math.abs(actual-255.2333333333)<0.01,detail:`${JSON.stringify(parseIncomeNotes("I get paid 114 one check and then 2 weeks later I get 74. I also get allowance of 17 dollars but 30% of that goes to HYSA."))} => ${actual}`});}catch(e){cases.push({label:"Irregular income notes can produce a recurring planning figure",pass:false,detail:e.message})}
 
  check("Every-two-weeks spending preserves cadence","spending","dispo money 40 dollars every two weeks",r=>r.length===1&&r[0].amount===40&&r[0].freq==="every 2 weeks");
  check("Natural savings goal extracts target and year-end date","savings","I want an emergency savings 500 by the end of 2026",r=>r.length===1&&r[0].target===500&&r[0].date==="2026-12-31"&&r[0].saved===0);
@@ -153,7 +153,7 @@ function naturalLanguageIntegrityTest(){
 function incomeRegressionCheck(){
  const base=JSON.parse(JSON.stringify(S));
  S.incomeAmount="114";S.incomeFreq="irregular";
- S.anything="My paychecks are irregular. I get paid 114 one check and then 2 weeks later I get 74. I also get allowance of 17 dollars but 30% of that goes to HYSA.";
+ S.incomeNotes="My paychecks are irregular. I get paid 114 one check and then 2 weeks later I get 74. I also get allowance of 17 dollars but 30% of that goes to HYSA.";
  const inc=incomeMonthly();
  Object.assign(S,base);
  return {pass:Number.isFinite(inc)&&Math.abs(inc-255.2333333333)<0.01,expected:255.2333333333,actual:inc};
@@ -773,7 +773,7 @@ function productionHardeningTest(){
  });
  run("Unexpected sensitive fields are excluded from persistence",()=>{
    S.bankPassword="secret";S.fullAccountNumber="123456789";
-   const allowed=["step","goals","incomeFreq","incomeAmount","nextPay","accounts","bills","nonMonthly","spending","debts","debtPref","savings","reserve","upcoming","stress","anything","approved","transfers"];
+   const allowed=["step","goals","incomeFreq","incomeAmount","nextPay","accounts","bills","nonMonthly","spending","debts","debtPref","savings","reserve","upcoming","stress","anything","incomeNotes","approved","transfers"];
    return !allowed.some(k=>false) && !["bankPassword","fullAccountNumber"].some(k=>allowed.includes(k));
  });
  Object.assign(S,original);
@@ -1729,7 +1729,7 @@ function qaGate(){
  if(!S.nextPay)issues.push("Next pay date is missing.");
  if(S.incomeAmount!=="" && (!Number.isFinite(parseMoney(S.incomeAmount)) || parseMoney(S.incomeAmount)<=0))issues.push("Take-home income must be a valid amount greater than zero.");
  if(/irregular|multiple/i.test(S.incomeFreq||"")){
-   const parsedIncome=parseIncomeNotes(S.anything);
+   const parsedIncome=parseIncomeNotes(incomeText());
    if(!parsedIncome.length)issues.push("This income setup needs a source-by-source or recent-pay-period breakdown before Money Reset can calculate a single recurring income figure.");
  }
  const requiredOut=totalMonthlyBills()+totalMonthlyDebtMin();
@@ -1745,6 +1745,7 @@ function qaGate(){
 function totalMonthlyBills(){return (S.bills||[]).reduce((a,x)=>{const m=x&&monthlyAmount(x.amount,x.freq);return a+(Number.isFinite(m)?m:0)},0)}
 function totalMonthlySpending(){return (S.spending||[]).reduce((a,x)=>{const m=x&&monthlyAmount(x.amount,x.freq);return a+(Number.isFinite(m)?m:0)},0)}
 function totalMonthlyDebtMin(){return (S.debts||[]).reduce((a,x)=>{const m=x&&monthlyAmount(x.min,x.freq);return a+(Number.isFinite(m)?m:0)},0)}
+function incomeText(){return String(S.incomeNotes||S.anything||"").trim()}
 function parseIncomeNotes(text){
  const raw=String(text??"").trim();
  if(!raw)return [];
@@ -1775,7 +1776,7 @@ function parseIncomeNotes(text){
 function incomeMonthly(){
  const a=parseMoney(S.incomeAmount),f=(S.incomeFreq||"").toLowerCase();
  if(/irregular|multiple/.test(f)){
-   const sources=parseIncomeNotes(S.anything);
+   const sources=parseIncomeNotes(incomeText());
    if(!sources.length)return null;
    let total=0;
    const alt=sources.filter(x=>x.pattern==="alternating");
@@ -1807,7 +1808,7 @@ function invalidateApproval(){if(S.step<13)S.approved=false}
 function saveCurrent(){
  const s=steps[S.step];
  invalidateApproval();
- if(s.income){S.incomeAmount=document.getElementById("incomeAmount").value;S.nextPay=document.getElementById("nextPay").value}
+ if(s.income){S.incomeAmount=document.getElementById("incomeAmount").value;S.nextPay=document.getElementById("nextPay").value;const n=document.getElementById("incomeNotes");if(n)S.incomeNotes=n.value}
  if(s.list){S[s.list]=parseRows(document.getElementById("area").value,s.list)}
  if(s.area){let v=document.getElementById("area").value;if(s.area==="reserve"&&/^(?:none|nothing|zero|no reserve|i(?:'m| am| do not| don't| dont) have (?:any )?reserve|i(?:'m| am| do not| don't| dont) keep (?:a )?reserve)$/i.test(v.trim()))v="0";S[s.area]=s.area==="upcoming"?parseUpcoming(v):v}
  if(s.debt)S.debtPref=document.getElementById("debtPref").value;
@@ -1818,7 +1819,7 @@ function render(){
  if(s.intro)body+=`<div class="center"><h1>The Money Reset</h1><p style="font-size:19px">Just answer the questions. I'll build your money plan.</p></div><p>No spreadsheets. No complicated budgeting. No math homework. 😂</p><p>Tell me about your household, your income, your bills, your goals, and the things you want to save for. I'll organize it, calculate it, check the math, and help you build a plan made for <b>your household</b>.</p><div class="note"><b>Our promise:</b> Money Reset uses your actual timing and spending patterns. It labels estimates, asks when something material is unclear, and never counts the same dollars twice.</div>`;
  if(s.q)body+=`<p><b>${s.q}</b></p>`;
  if(s.opts)body+=`<div class="grid">${s.opts.map(x=>`<button class="option ${((S[s.multi]||[]).includes(x)||S.incomeFreq===x)?"selected":""}" onclick="pick(${esc(JSON.stringify(x))},${esc(JSON.stringify(s.multi||"income"))})">${esc(x)}</button>`).join("")}</div>`;
- if(s.income)body+=`<div class="row"><div class="field"><label>Take-home amount</label><input id="incomeAmount" type="number" min="0" placeholder="e.g. 1800" value="${esc(S.incomeAmount)}"></div><div class="field"><label>Next pay date</label><input id="nextPay" type="date" value="${esc(S.nextPay)}"></div></div><div class="note">If income varies, give the amount that best represents the current situation. The full version can use multiple income sources and recent pay periods.</div>`;
+ if(s.income)body+=`<div class="row"><div class="field"><label>Take-home amount</label><input id="incomeAmount" type="number" min="0" placeholder="e.g. 1800" value="${esc(S.incomeAmount)}"></div><div class="field"><label>Next pay date</label><input id="nextPay" type="date" value="${esc(S.nextPay)}"></div></div><div class="field"><label>${/irregular|multiple/i.test(S.incomeFreq||"")?"How does this income work?":"Income details (optional)"}</label><textarea id="incomeNotes" placeholder="Example: I get paid $1,200 one check and $900 two weeks later. I also get a $100 weekly allowance, but 30% goes to savings.">${esc(S.incomeNotes||"")}</textarea><div class="mini">For irregular or multiple income, describe the actual pattern here. Money Reset will use the details you provide instead of guessing a recurring amount.</div></div>`;
  if(s.list)body+=`<div class="field"><label>${s.prompt}</label><textarea id="area" placeholder="${esc(s.ph)}">${esc(formatRows(S[s.list],s.list))}</textarea><div class="mini">${esc(s.help)}</div><div style="margin-top:9px"><button type="button" class="btn secondary" onclick="setListNone(${esc(JSON.stringify(s.list))})">I don't have any of these</button></div>${s.list==="savings"?`<div class="note"><b>Plain-language answers are okay.</b> If you have nothing saved, you can write “none,” “nothing saved,” or “I don't have any savings.” Money Reset will understand that as <b>$0 already saved</b>. You can also say “none” when you have no items in a list; Money Reset will leave that list empty instead of creating a fake $0 entry.</div>`:""}</div>`;
  if(s.debt)body+=`<div class="field"><label>How would you like to approach payoff?</label><select id="debtPref"><option value="">I'll decide later</option><option ${S.debtPref==="Highest interest first"?"selected":""}>Highest interest first</option><option ${S.debtPref==="Smallest balance first"?"selected":""}>Smallest balance first</option><option ${S.debtPref==="Pay down strategically while protecting cash flow"?"selected":""}>Pay down strategically while protecting cash flow</option></select></div>`;
  if(s.area)body+=`<div class="field"><label>${s.prompt}</label><textarea id="area" placeholder="${esc(s.ph)}">${esc(S[s.area])}</textarea>${s.area==="reserve"?`<div style="margin-top:9px"><button type="button" class="btn secondary" onclick="document.getElementById('area').value='none'">I don't keep a reserve</button></div><div class="mini">You can answer naturally. “None” or “I don't keep a reserve” means you currently have $0 intentionally set aside.</div>`:""}</div>`;
@@ -1864,7 +1865,7 @@ function review(){
  <div class="review"><b>Biggest money stress</b><p>${esc(S.stress||"Not entered")}</p></div>
  <div class="note"><b>Final review:</b> Check that this reflects your real situation. Money Reset will not silently change priorities, invent missing information, double-count transfers, or call a bank balance “safe to spend.” Material changes require your approval.<div class="field"><label><input id="approve" type="checkbox" style="width:auto" ${S.approved?"checked":""} onchange="S.approved=this.checked"> I confirm this review is ready for your plan.</label></div></div>`;
 }
-const PERSIST_KEYS=["step","goals","incomeFreq","incomeAmount","nextPay","accounts","bills","nonMonthly","spending","debts","debtPref","savings","reserve","upcoming","stress","anything","approved","transfers"];
+const PERSIST_KEYS=["step","goals","incomeFreq","incomeAmount","nextPay","accounts","bills","nonMonthly","spending","debts","debtPref","savings","reserve","upcoming","stress","anything","incomeNotes","approved","transfers"];
 function cleanRecord(src=S){const out={};PERSIST_KEYS.forEach(k=>{if(k in src)out[k]=JSON.parse(JSON.stringify(src[k]))});return out;}
 function serializeBetaRecord(src=S){return JSON.stringify({version:1,data:cleanRecord(src)})}
 function persistBeta(){try{localStorage.setItem("moneyResetBeta",serializeBetaRecord());return true}catch(e){return false}}
@@ -2224,7 +2225,7 @@ function incomeCalendarEvents(today){
    const anchor=parseDate(S.nextPay);
    if(anchor){
      if(/irregular|multiple/.test(f)){
-       const sources=parseIncomeNotes(S.anything);
+       const sources=parseIncomeNotes(incomeText());
        const payA=sources.find(x=>x.pattern==="alternating"&&x.name.includes("A"));
        const payB=sources.find(x=>x.pattern==="alternating"&&x.name.includes("B"));
        if(payA&&payB){
@@ -2382,7 +2383,7 @@ function customerExport(){
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="money-reset-beta-record.json";a.click();URL.revokeObjectURL(a.href);
 }
 function normalizeImportedRecord(incoming){
- const allowed=["step","goals","incomeFreq","incomeAmount","nextPay","accounts","bills","nonMonthly","spending","debts","debtPref","savings","reserve","upcoming","stress","anything","approved","transfers"];
+ const allowed=["step","goals","incomeFreq","incomeAmount","nextPay","accounts","bills","nonMonthly","spending","debts","debtPref","savings","reserve","upcoming","stress","anything","incomeNotes","approved","transfers"];
  const out={};
  allowed.forEach(k=>{if(Object.prototype.hasOwnProperty.call(incoming,k))out[k]=incoming[k];});
  const arrays=["goals","accounts","bills","nonMonthly","spending","debts","savings","upcoming","transfers"];
@@ -2408,6 +2409,7 @@ function normalizeImportedRecord(incoming){
  if(typeof out.reserve!=="number" && typeof out.reserve!=="string")out.reserve="";
  if(typeof out.stress!=="string")out.stress="";
  if(typeof out.anything!=="string")out.anything="";
+ if(typeof out.incomeNotes!=="string")out.incomeNotes="";
  out.approved=false;
  return out;
 }
