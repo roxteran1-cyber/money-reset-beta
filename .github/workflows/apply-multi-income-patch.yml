@@ -1,0 +1,78 @@
+name: Apply Money Reset multi-income patch
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-multi-income-patch.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch generic multiple-income parsing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          start=s.index('function parseIncomeNotes(text){')
+          end=s.index('function incomeMonthly(){', start)
+          new=r'''function parseIncomeNotes(text){
+           const raw=String(text??"").trim();
+           if(!raw)return [];
+           const sources=[];
+           const moneyRe='(?:\\$\\s*)?([0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?)';
+           let m=raw.match(new RegExp('get\\s+paid\\s+'+moneyRe+'[^.\\n]*?(?:2|two)\\s+weeks?\\s+later[^.\\n]*?(?:get\\s+paid\\s+|then\\s+)?'+moneyRe,'i'));
+           if(m){
+             const a=parseMoney(m[1]), b=parseMoney(m[2]);
+             if(Number.isFinite(a)&&Number.isFinite(b)&&a>=0&&b>=0){
+               sources.push({name:"Alternating paycheck A",amount:a,freq:"every 2 weeks",pattern:"alternating"});
+               sources.push({name:"Alternating paycheck B",amount:b,freq:"every 2 weeks",pattern:"alternating"});
+             }
+           }
+           m=raw.match(new RegExp('allowance\\s+(?:of\\s+)?'+moneyRe+'\\s*(?:dollars?)?','i'));
+           if(m){
+             const gross=parseMoney(m[1]);
+             const pctMatch=raw.match(/allowance[^.\\n]*?([0-9]+(?:\\.[0-9]+)?)\\s*%[^.\\n]*?(?:deduct|goes|sent|put|contribut)/i);
+             const pct=Number.isFinite(parseFloat(pctMatch&&pctMatch[1]))?parseFloat(pctMatch[1]):0;
+             if(Number.isFinite(gross)&&gross>=0){
+               const net=gross*(1-Math.min(Math.max(pct,0),100)/100);
+               sources.push({name:"Allowance",amount:net,freq:"weekly",gross,pctToSavings:pct});
+             }
+           }
+           const freqPatterns=[
+             {re:/(?:every\\s+2\\s+weeks|every\\s+two\\s+weeks|biweekly|bi-weekly)/i,freq:"every 2 weeks"},
+             {re:/(?:twice\\s+(?:a|per)\\s+month|semi[- ]?monthly)/i,freq:"twice a month"},
+             {re:/(?:every\\s+week|weekly|per\\s+week)/i,freq:"weekly"},
+             {re:/(?:every\\s+month|monthly|per\\s+month)/i,freq:"monthly"},
+             {re:/(?:every\\s+year|yearly|annual(?:ly)?|per\\s+year)/i,freq:"yearly"}
+           ];
+           const genericChunks=raw.split(/[.!?;\\n]+/).flatMap(x=>x.split(/\\s+and\\s+/i)).map(x=>x.trim()).filter(Boolean);
+           genericChunks.forEach(chunk=>{
+             if(/allowance/i.test(chunk))return;
+             let fp=freqPatterns.find(x=>x.re.test(chunk));
+             if(!fp)return;
+             const nums=[...chunk.matchAll(/(?:\\$\\s*)?([0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?)/g)].map(x=>parseMoney(x[1])).filter(Number.isFinite);
+             if(nums.length!==1)return;
+             const amount=nums[0];
+             if(amount<0)return;
+             const name=(chunk.replace(/(?:\\$\\s*)?[0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?/,'').replace(/(?:every\\s+2\\s+weeks|every\\s+two\\s+weeks|biweekly|bi-weekly|twice\\s+(?:a|per)\\s+month|semi[- ]?monthly|every\\s+week|weekly|per\\s+week|every\\s+month|monthly|per\\s+month|every\\s+year|yearly|annual(?:ly)?|per\\s+year)/ig,'').replace(/\\b(?:i|we|my|our|receive|receives|make|makes|earn|earns|get|gets|paid|pay|income|from|the|a|an|of|in|on|and|but|is|are)\\b/ig,' ').replace(/\\s+/g,' ').trim()) || "Income source";
+             if(!sources.some(x=>x.name===name&&x.amount===amount&&x.freq===fp.freq))sources.push({name,amount,freq:fp.freq,pattern:"recurring"});
+           });
+           return sources;
+          }
+          '''
+          s2=s[:start]+new+s[end:]
+          if s2==s:
+              raise SystemExit('No change made; parser block was not found.')
+          p.write_text(s2)
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "money-reset-bot"
+          git config user.email "actions@github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Improve multiple-income parsing"
+          git push
