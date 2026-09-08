@@ -14,50 +14,37 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
           p=Path('index.html')
           s=p.read_text()
-          start=s.index('function parseIncomeNotes(text){')
-          end=s.index('\nfunction incomeMonthly(){', start)
+          a=s.index('function parseIncomeNotes(text){')
+          b=s.index('\nfunction incomeMonthly(){',a)
           new=r'''function parseIncomeNotes(text){
- const raw=String(text??"").trim();
- if(!raw)return [];
- const sources=[];
- const moneyRe='(?:\\$\\s*)?([0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?)';
- const add=(name,amount,freq,extra={})=>{if(Number.isFinite(amount)&&amount>=0&&freq)sources.push({name,amount,freq,pattern:"recurring",...extra});};
+ const raw=String(text??"").trim(); if(!raw)return [];
+ const sources=[]; const moneyRe='(?:\\$\\s*)?([0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?)';
+ const add=(name,amount,freq,extra={})=>{if(Number.isFinite(amount)&&amount>=0)sources.push({name,amount,freq,pattern:"recurring",...extra});};
  let m=raw.match(new RegExp('get\\s+paid\\s+'+moneyRe+'[^.\\n]*?(?:2|two)\\s+weeks?\\s+later[^.\\n]*?(?:get\\s+paid\\s+|then\\s+)?'+moneyRe,'i'));
- if(m){const a=parseMoney(m[1]),b=parseMoney(m[2]);if(Number.isFinite(a)&&Number.isFinite(b)&&a>=0&&b>=0){sources.push({name:"Alternating paycheck A",amount:a,freq:"every 2 weeks",pattern:"alternating"});sources.push({name:"Alternating paycheck B",amount:b,freq:"every 2 weeks",pattern:"alternating"});}}
+ if(m){const a=parseMoney(m[1]),b2=parseMoney(m[2]);if(Number.isFinite(a)&&Number.isFinite(b2)){sources.push({name:"Alternating paycheck A",amount:a,freq:"every 2 weeks",pattern:"alternating"});sources.push({name:"Alternating paycheck B",amount:b2,freq:"every 2 weeks",pattern:"alternating"});}}
  m=raw.match(new RegExp('allowance\\s+(?:of\\s+)?'+moneyRe+'\\s*(?:dollars?)?','i'));
- if(m){const gross=parseMoney(m[1]);const pctMatch=raw.match(/allowance[^.\n]*?([0-9]+(?:\.[0-9]+)?)\s*%[^.\n]*?(?:deduct|goes|sent|put|contribut)/i);const pct=Number.isFinite(parseFloat(pctMatch&&pctMatch[1]))?parseFloat(pctMatch[1]):0;if(Number.isFinite(gross)&&gross>=0){const net=gross*(1-Math.min(Math.max(pct,0),100)/100);sources.push({name:"Allowance",amount:net,freq:"weekly",gross,pctToSavings:pct,pattern:"recurring"});}}
- const freqDefs=[
-  {freq:"every 2 weeks",re:/(?:every\s*(?:2|two)|bi-?weekly)\s+weeks?/i},
-  {freq:"twice a month",re:/(?:twice\s+(?:a|per)\s+month|two\s+times\s+(?:a|per)\s+month)/i},
-  {freq:"weekly",re:/(?:weekly|every\s+week|per\s+week|a\s+week|each\s+week)/i},
-  {freq:"monthly",re:/(?:monthly|every\s+month|per\s+month|a\s+month|each\s+month)/i},
-  {freq:"yearly",re:/(?:yearly|annual(?:ly)?|every\s+year|per\s+year|a\s+year|each\s+year)/i}
+ if(m){const gross=parseMoney(m[1]);const pm=raw.match(/allowance[^.\n]*?([0-9]+(?:\.[0-9]+)?)\s*%[^.\n]*?(?:deduct|goes|sent|put|contribut)/i);const pct=pm?parseFloat(pm[1]):0;if(Number.isFinite(gross)){const net=gross*(1-Math.min(Math.max(pct,0),100)/100);sources.push({name:"Allowance",amount:net,freq:"weekly",gross,pctToSavings:pct,pattern:"recurring"});}}
+ const defs=[
+ ["every 2 weeks",/(?:every\s*(?:2|two)|bi-?weekly)\s+weeks?/i],
+ ["twice a month",/(?:twice\s+(?:a|per)\s+month|two\s+times\s+(?:a|per)\s+month|semi[- ]?monthly)/i],
+ ["weekly",/(?:weekly|every\s+week|per\s+week|a\s+week|each\s+week)/i],
+ ["monthly",/(?:monthly|every\s+month|per\s+month|a\s+month|each\s+month)/i],
+ ["yearly",/(?:yearly|annual(?:ly)?|every\s+year|per\s+year|a\s+year|each\s+year)/i]
  ];
- const clauses=raw.split(/[.!?\n]+/).map(x=>x.trim()).filter(Boolean);
- clauses.forEach(clause=>{
-  if(/\b(?:I\s+pay|paid\s+to|owe|owes|payment\s+for|child\s+support\s+(?:paid|payment)|rent|bill)\b/i.test(clause))return;
-  if(/\ballowance\b/i.test(clause))return;
-  for(const def of freqDefs){
-   if(def.freq==="monthly" && /twice\s+(?:a|per)\s+month|two\s+times\s+(?:a|per)\s+month/i.test(clause))continue;
-   const re=new RegExp(moneyRe+'\\s*(?:dollars?)?\\s*(?:[^0-9$]{0,50}?)'+def.re.source,'gi');
-   let match;
-   while((match=re.exec(clause))){
-    const amount=parseMoney(match[1]);if(!Number.isFinite(amount)||amount<0)continue;
-    const lead=clause.slice(0,match.index);
-    const nameRaw=lead.replace(new RegExp(moneyRe+'\\s*(?:dollars?)?\\s*$','i'),'').replace(/^.*?\b(?:get paid|gets paid|receive|receives|earn|earns|income|salary|wage|from)\b/i,'').trim();
-    const tail=clause.slice(match.index+match[0].length).split(/(?:\$|\b\d)/,1)[0].replace(/^(?:in|from|for)\s+/i,'').trim();
-    const name=(tail||nameRaw||"Income source").replace(/[,:;]+$/,'').trim()||"Income source";
-    add(name,amount,def.freq);
-   }
-  }
+ raw.split(/[.!?;\n]+/).map(x=>x.trim()).filter(Boolean).forEach(chunk=>{
+  if(/allowance/i.test(chunk)||/\b(?:I\s+pay|paid\s+to|owe|owes|payment\s+for|child\s+support\s+(?:paid|payment)|rent|bill)\b/i.test(chunk))return;
+  const fp=defs.find(x=>x[1].test(chunk)); if(!fp)return;
+  const nums=[...chunk.matchAll(/(?:\$\s*)?([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/g)].map(x=>parseMoney(x[1])).filter(Number.isFinite);
+  if(nums.length!==1)return;
+  const amount=nums[0];
+  const name=chunk.replace(/(?:\$\s*)?[0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?/,'').replace(fp[1],'').replace(/\b(?:i|we|my|our|receive|receives|make|makes|earn|earns|get|gets|paid|pay|income|from|the|a|an|of|in|on|and|but|is|are)\b/ig,' ').replace(/\s+/g,' ').trim()||"Income source";
+  if(!sources.some(x=>x.name===name&&x.amount===amount&&x.freq===fp[0]))add(name,amount,fp[0]);
  });
- const seen=new Set(),out=[];sources.forEach(x=>{const key=[x.pattern,x.name,x.amount,x.freq,x.pctToSavings||0].join("|");if(!seen.has(key)){seen.add(key);out.push(x)}});return out;
+ const seen=new Set(),out=[]; sources.forEach(x=>{const key=[x.pattern,x.name,x.amount,x.freq,x.pctToSavings||0].join("|");if(!seen.has(key)){seen.add(key);out.push(x);}}); return out;
 }'''
-          s=s[:start]+new+s[end:]
-          p.write_text(s)
+          p.write_text(s[:a]+new+s[b:])
           PY
       - name: Validate and commit
         run: |
@@ -65,7 +52,7 @@ jobs:
           from pathlib import Path
           import re
           s=Path('index.html').read_text()
-          js=re.search(r'<script>([\\s\\S]*?)</script>',s).group(1)
+          js=re.search(r'<script>([\s\S]*?)</script>',s).group(1)
           Path('/tmp/mr.js').write_text(js)
           PY
           node --check /tmp/mr.js
